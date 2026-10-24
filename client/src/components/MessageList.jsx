@@ -5,37 +5,35 @@ import { Avatar } from './Avatar.jsx';
 // Messages from the same person within this time are shown as one block.
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
-function Message({ message, mine, continued, meId, nameOf, picking, onPick, onReact }) {
+// On touch screens there's no hover, so tapping a message opens the reaction bar instead.
+const isTouch = () => window.matchMedia('(hover: none)').matches;
+
+function Message({ message, continued, meId, nameOf, picking, onPick, onReact }) {
   const reactions = Object.entries(message.reactions ?? {});
+  const time = <time dateTime={new Date(message.ts).toISOString()}>{formatTime(message.ts)}</time>;
 
   return (
-    <div className={`message ${mine ? 'mine' : ''} ${continued ? 'continued' : ''} ${picking ? 'picking' : ''}`}>
-      {!mine && <div className="message-avatar">{!continued && <Avatar user={message} size={34} />}</div>}
+    <div
+      className={`message ${continued ? 'continued' : ''} ${picking ? 'picking' : ''}`}
+      onClick={(e) => !e.target.closest('button') && onPick()}
+    >
+      <div className="message-gutter">
+        {continued ? <span className="gutter-time">{time}</span> : <Avatar user={message} size={40} />}
+      </div>
       <div className="message-body">
         {!continued && (
           <div className="message-meta">
-            {!mine && <span className="message-author">{message.name}</span>}
-            <time dateTime={new Date(message.ts).toISOString()}>{formatTime(message.ts)}</time>
+            <span className="message-author">{message.name}</span>
+            {time}
           </div>
         )}
-        <div className="bubble-row">
-          <div className="bubble" onClick={onPick}>
-            {message.text}
-          </div>
-          <div className="reaction-picker" role="group" aria-label="Add a reaction">
-            {REACTIONS.map((emoji) => (
-              <button key={emoji} aria-label={`React with ${emoji}`} onClick={() => onReact(message.id, emoji)}>
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
+        <div className="message-text">{message.text}</div>
         {reactions.length > 0 && (
           <div className="reactions">
             {reactions.map(([emoji, userIds]) => (
               <button
                 key={emoji}
-                className={`reaction ${userIds.includes(meId) ? 'mine' : ''}`}
+                className={`reaction ${userIds.includes(meId) ? 'reacted' : ''}`}
                 title={userIds.map(nameOf).join(', ')}
                 aria-label={`${emoji} ${userIds.length}, by ${userIds.map(nameOf).join(', ')}`}
                 onClick={() => onReact(message.id, emoji)}
@@ -45,6 +43,13 @@ function Message({ message, mine, continued, meId, nameOf, picking, onPick, onRe
             ))}
           </div>
         )}
+      </div>
+      <div className="reaction-picker" role="group" aria-label="Add a reaction">
+        {REACTIONS.map((emoji) => (
+          <button key={emoji} aria-label={`React with ${emoji}`} onClick={() => onReact(message.id, emoji)}>
+            {emoji}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -74,7 +79,8 @@ export default function MessageList({ group, me, onReact, footer }) {
     stickToBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   }
 
-  const names = Object.fromEntries(group.members.map((m) => [m.id, m.id === me.id ? 'You' : m.name]));
+  // Names for the reaction tooltips, including people who have since left the group.
+  const names = Object.fromEntries(group.members.map((m) => [m.id, m.name]));
   for (const m of messages) if (m.type === 'user' && !names[m.userId]) names[m.userId] = m.name;
   const nameOf = (id) => names[id] ?? 'Someone';
 
@@ -104,12 +110,11 @@ export default function MessageList({ group, me, onReact, footer }) {
         <Message
           key={message.id}
           message={message}
-          mine={message.userId === me.id}
           continued={continued}
           meId={me.id}
           nameOf={nameOf}
           picking={pickingId === message.id}
-          onPick={() => setPickingId((id) => (id === message.id ? null : message.id))}
+          onPick={() => isTouch() && setPickingId((id) => (id === message.id ? null : message.id))}
           onReact={(messageId, emoji) => {
             setPickingId(null);
             onReact(messageId, emoji);

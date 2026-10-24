@@ -14,8 +14,6 @@
   --accent-hover: #a8380a;
   --accent-soft: #fde9dc;
   --on-accent: #ffffff;
-  --bubble: #ffffff;
-  --bubble-border: #e9e2d9;
   --danger: #c92a2a;
   --danger-soft: #fdecec;
   --online: #2f9e44;
@@ -38,8 +36,6 @@
     --accent-hover: #ffa06e;
     --accent-soft: #3b2417;
     --on-accent: #1d0f06;
-    --bubble: #23252c;
-    --bubble-border: #2f323a;
     --danger: #ff6b6b;
     --danger-soft: #3a1c1c;
     --online: #51cf66;
@@ -591,84 +587,89 @@ legend {
 }
 
 .system-message {
-  margin: 8px 20px;
+  margin: 6px 0;
+  padding: 0 20px 0 72px;
   font-size: 13px;
   color: var(--muted);
-  text-align: center;
 }
 
+.system-message::before {
+  content: '→';
+  margin-right: 8px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Everyone's messages sit on the left: picture, then name and time, then the text. */
 .message {
+  position: relative;
   display: flex;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 0 20px;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 4px 20px;
 }
 
 .message.continued {
-  margin-top: 3px;
+  margin-top: 0;
+  padding-top: 1px;
+  padding-bottom: 1px;
 }
 
-.message.mine {
-  justify-content: flex-end;
+.message:hover,
+.message.picking {
+  background: var(--hover);
 }
 
-.message-avatar {
-  width: 34px;
+.message-gutter {
+  display: flex;
+  justify-content: center;
+  width: 40px;
   flex: none;
 }
 
-.message-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  max-width: min(560px, 78%);
-  min-width: 0;
+/* Follow-up messages show their time in the gutter when you point at them. */
+.gutter-time {
+  padding-top: 3px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  opacity: 0;
 }
 
-.message.mine .message-body {
-  align-items: flex-end;
+.message:hover .gutter-time,
+.message.picking .gutter-time {
+  opacity: 1;
+}
+
+.message-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .message-meta {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 0 4px 3px;
   font-size: 12px;
   color: var(--muted);
 }
 
 .message-author {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text);
 }
 
-.bubble-row {
-  position: relative;
-  max-width: 100%;
-}
-
-.bubble {
-  padding: 8px 13px;
-  border: 1px solid var(--bubble-border);
-  border-radius: 18px;
-  background: var(--bubble);
+.message-text {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.message.mine .bubble {
-  border-color: transparent;
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-/* Sits beside the bubble (never on top of it), on the side with free space. */
+/* Floats over the top-right corner of the message you're pointing at, away from the text. */
 .reaction-picker {
   position: absolute;
-  top: 50%;
-  left: calc(100% + 6px);
+  top: -18px;
+  right: 20px;
   z-index: 2;
   display: flex;
   padding: 3px;
@@ -678,14 +679,8 @@ legend {
   box-shadow: var(--shadow);
   opacity: 0;
   pointer-events: none;
-  transform: translate(-4px, -50%);
+  transform: translateY(4px);
   transition: opacity 0.12s, transform 0.12s;
-}
-
-.message.mine .reaction-picker {
-  right: calc(100% + 6px);
-  left: auto;
-  transform: translate(4px, -50%);
 }
 
 /* :focus-visible so keyboard users can reach it, but it closes after a mouse click. */
@@ -694,7 +689,7 @@ legend {
 .message.picking .reaction-picker {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(0, -50%);
+  transform: none;
 }
 
 .reaction-picker button {
@@ -735,12 +730,12 @@ legend {
   color: var(--muted);
 }
 
-.reaction.mine {
+.reaction.reacted {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.reaction.mine span {
+.reaction.reacted span {
   color: var(--accent);
 }
 
@@ -1113,31 +1108,16 @@ legend {
   }
 
   .message {
-    padding: 0 12px;
+    padding-right: 12px;
+    padding-left: 12px;
   }
 
-  .message-body {
-    max-width: 85%;
+  .system-message {
+    padding: 0 12px 0 64px;
   }
 
-  /* No room beside the bubble on a phone, so the reactions pop up above it. */
-  .reaction-picker,
-  .message.mine .reaction-picker,
-  .message:hover .reaction-picker,
-  .message:has(:focus-visible) .reaction-picker,
-  .message.picking .reaction-picker {
-    top: auto;
-    bottom: calc(100% + 4px);
-    left: 0;
-    right: auto;
-    transform: none;
-  }
-
-  .message.mine .reaction-picker,
-  .message.mine:hover .reaction-picker,
-  .message.mine.picking .reaction-picker {
-    left: auto;
-    right: 0;
+  .reaction-picker {
+    right: 12px;
   }
 
   .members-panel {

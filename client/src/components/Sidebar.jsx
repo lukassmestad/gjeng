@@ -3,11 +3,11 @@ import { Avatar, GroupAvatar } from './Avatar.jsx';
 import { LinkIcon, LogOutIcon, PlusIcon } from './Icons.jsx';
 import Logo from './Logo.jsx';
 
-function preview(group, meId) {
+function preview(group) {
   const last = group.messages.at(-1);
   if (!last) return 'No messages yet';
   if (last.type === 'system') return last.text;
-  return `${last.userId === meId ? 'You' : last.name}: ${last.text}`;
+  return `${last.name}: ${last.text}`;
 }
 
 export default function Sidebar({ me, groups, activeId, unread, onSelect, onNew, onJoin, onSignOut }) {
@@ -52,7 +52,7 @@ export default function Sidebar({ me, groups, activeId, unread, onSelect, onNew,
                   {last && <span className="group-item-time">{formatShort(last.ts)}</span>}
                 </span>
                 <span className="group-item-bottom">
-                  <span className="group-item-preview">{preview(group, me.id)}</span>
+                  <span className="group-item-preview">{preview(group)}</span>
                   {count > 0 && (
                     <span className="badge" aria-label={`${count} unread`}>
                       {count > 99 ? '99+' : count}

@@ -45,6 +45,11 @@ test('two people can chat in a group in real time', async ({ browser }) => {
   await expect(ada.getByText('Bo is typing…')).toBeVisible();
   await composer(bo).press('Enter');
   await expect(messages(ada).getByText('Leg day tomorrow?')).toBeVisible();
+
+  // Your own messages show your name like everyone else's, not "You".
+  const bosMessage = messages(bo).locator('.message', { hasText: 'Leg day tomorrow?' });
+  await expect(bosMessage.locator('.message-author')).toHaveText('Bo');
+  await expect(bo.getByRole('navigation', { name: 'Your groups' })).toContainText('Bo: Leg day tomorrow?');
   await expect(ada.getByText('Bo is typing…')).toBeHidden();
 
   await composer(ada).fill('Yes! 6pm');
@@ -58,7 +63,7 @@ test('two people can chat in a group in real time', async ({ browser }) => {
   await expect(ada.getByRole('button', { name: /🔥 1, by Bo/ })).toBeVisible();
 
   // Clicking your own reaction again removes it.
-  await adasMessage.getByRole('button', { name: /🔥 1, by You/ }).click();
+  await adasMessage.getByRole('button', { name: /🔥 1, by Bo/ }).click();
   await expect(ada.getByRole('button', { name: /🔥 1, by Bo/ })).toBeHidden();
 });
 

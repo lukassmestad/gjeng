@@ -33,6 +33,7 @@ Technology: React front end, Node.js server with Socket.IO for real-time updates
 
 - *"I think just a basic chat and group application could be better."*
 - *"I like the name Gjeng then! Lets get started."*
+- After trying the first version: *"I think the messages should not be shown left to right, as that fits a phone view more. It should instead be all to the left of the page and show the profile picture and name with their message under. So it should show your name instead of something like 'You' or a different colour."*
 
 From there the AI planned the structure, wrote the server, the chat logic, the React app and the styles, and wrote tests for all of it.
 
@@ -66,7 +67,22 @@ Problems handled before they happened:
 - **Phones on the same Wi-Fi use plain `http://`**, where browsers turn off `crypto.randomUUID()` and the clipboard API. The app uses fallbacks for both, so joining and copying invite codes work on phones too.
 - **No crashes if browser storage is blocked** (private mode), because every read and write of saved data is wrapped in error handling.
 
-## 6. What I'd add next
+## 6. Changes after trying it myself
+
+The first version showed messages like a phone chat: other people's messages on the left in white bubbles, and yours on the right in orange. Everyone's messages are now on the left, Discord/Slack style:
+
+- Each message has the person's profile picture, their **name** and the time, with the message underneath.
+- Your own messages look the same as everyone else's and show your name, not "You". This also applies to the group list preview and the reaction tooltips.
+- Several messages in a row from the same person are grouped under one name. Pointing at one shows its time.
+- The reaction bar now pops up in the top-right corner of the message instead of beside a bubble.
+
+A new browser test checks that your own messages show your name.
+
+| Before | After |
+| --- | --- |
+| Bubbles, your messages on the right in orange | Everyone on the left with picture and name |
+
+## 7. What I'd add next
 
 - Sending images
 - Proper accounts so you can log in on a new device

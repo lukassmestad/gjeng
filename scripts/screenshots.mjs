@@ -78,7 +78,7 @@ async function open(page, groupName) {
 
 async function react(page, text, emoji) {
   const message = page.getByRole('log').locator('.message', { hasText: text });
-  await message.locator('.bubble').hover();
+  await message.locator('.message-text').hover();
   await message.getByRole('button', { name: `React with ${emoji}` }).click();
 }
 
