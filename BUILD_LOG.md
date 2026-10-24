@@ -112,11 +112,32 @@ A new browser test checks the Online/Offline sections (one person closes the app
 
 ![A big group with the folder icon and the member list](docs/big-group.png)
 
-## 9. What surprised me
+## 9. Usernames, adding friends to groups, and demo data
+
+My prompts:
+
+- *"How about first making usernames more exclusive and having the friend codes based on the username? So it's easier to add friends. I also think when a friend is added their DM should automatically be opened. For both people it also says 'No friends' in the friends tab."*
+- *"Also add an option to add or invite people from your friend list to a group."*
+- *"When launching the app, how about having already created some users who share friends among each other, with for example 3 different groups of different combinations and some already typed messages. Would look good for the demo I think."*
+
+**The "No friends" problem.** Before changing any code, the AI looked at the data the server had saved from my testing. Frederik and Ola had a direct message with messages in it, so they *had* been friends, and the friendship had later been removed. That only happens through the ✕ next to a friend, which looked like a "close" button but meant "Remove friend". So it was a confusing design rather than a crash, and the ✕ became a clearly labelled "Remove friend" button.
+
+What changed:
+
+- **Usernames are unique** (upper/lower case doesn't matter) and can be typed: 2–20 letters or numbers, no spaces, æøå allowed. The join screen asks the server while you type and shows "✓ Available" or "already taken". Friend codes are gone: **you add friends by typing their username**.
+- **Accepting a friend request creates your direct message straight away.** The person who accepts lands in it. The person who asked also jumps there if they were waiting on the Friends page, and otherwise it shows up in their list.
+- **Add friends to a group:** an "Add friends" button in the member list opens your friends who aren't in the group yet, each with an "Add" button. The group sees "Emma added Jonas".
+- **Demo mode (`npm run demo`):** seven made-up people (Emma, Jonas, Sara, Ola, Noah, Ingrid, Maja) who are friends in different combinations, three groups (Gym crew, Kollektiv, Exam study group), three direct messages, reactions and a waiting friend request. The join screen offers **"Jump in as …"** buttons. The demo resets every time it starts and is kept apart from real data.
+
+Tests: 35 unit tests and 10 browser tests, all passing. New ones cover unique usernames, adding by username, the DM opening on both sides after accepting, adding friends to a group, and that the demo data is complete and in time order. Because usernames are unique now, the browser tests give each person a name like `Ada_k3f9`, so the tests don't clash with each other.
+
+![Adding friends to a group](docs/add-friends.png)
+
+## 10. What surprised me
 
 How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
 
-## 10. What I'd add next
+## 11. What I'd add next
 
 - Sending images
 - Voice chat

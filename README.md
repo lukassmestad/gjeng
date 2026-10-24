@@ -18,12 +18,12 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 
 ## What it does
 
-- **Join with a name and a colour.** There's no password and no account, so nothing sensitive is stored.
-- **Groups:** create a group, invite people with a code like `K7P2QX`, join other groups with their code, and leave when you want.
+- **Join with a unique username and a colour.** The join screen checks live whether the name is free. There's no password, so nothing sensitive is stored.
+- **Groups:** create a group, invite people with a code like `K7P2QX` or add your friends straight in, join other groups with their code, and leave when you want.
 - **Live chat:** messages show up instantly for everyone in the group. It also shows "Jonas is typing…" and who is online.
 - **Group icons like an app folder:** every member's picture inside the group's icon, with "+N" for big groups.
 - **Member list on the right** (like Discord), split into Online and Offline.
-- **Friends and direct messages:** everyone has a friend code. Add people by code or straight from a group's member list, accept or decline requests, and chat one-on-one.
+- **Friends and direct messages:** add people by typing their username or straight from a group's member list. When a request is accepted, your direct message opens right away.
 - **Emoji reactions** on messages (👍 ❤️ 😂 😮 🔥).
 - **Unread badges** in the group list and in the browser tab title.
 - **Works on phones** (one screen at a time, with a back button) and in **dark mode**.
@@ -41,6 +41,8 @@ npm start
 
 Then open <http://localhost:3000>.
 
+**To show it off:** `npm run demo` starts Gjeng with seven made-up people who are already friends, three groups, direct messages and a chat history. On the join screen, click **"Jump in as Emma"** (or anyone else). The demo resets every time it starts, and it's kept apart from your real data.
+
 - **To be two people on one computer:** open a second window in private/incognito mode, or use <http://127.0.0.1:3000> in the same browser. Each one counts as a different person.
 - **To chat with a friend on the same Wi-Fi:** the server prints an address like `http://192.168.x.x:3000` that works on phones. Windows may ask you to let Node.js through the firewall.
 - **While developing:** `npm run dev` starts the server and a hot-reloading front end on <http://localhost:5173>.
@@ -48,10 +50,10 @@ Then open <http://localhost:3000>.
 ## Tests
 
 ```bash
-npm test                      # 28 unit tests for the chat and friends logic (Vitest)
+npm test                      # 35 unit tests for the chat, friends and demo data (Vitest)
 npx playwright install chromium   # first time only
-npm run test:e2e              # 8 browser tests where two people chat and become friends (Playwright)
-npm run screenshots           # fills a test server with a made-up chat and saves screenshots to captures/
+npm run test:e2e              # 10 browser tests where two people chat and become friends (Playwright)
+npm run screenshots           # starts a demo server and saves screenshots to captures/
 ```
 
 ## How it's built

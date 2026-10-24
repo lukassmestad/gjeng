@@ -335,6 +335,59 @@ legend {
   font-weight: 600;
 }
 
+.name-status {
+  min-height: 18px;
+  margin-top: -4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.name-status.ok {
+  color: var(--online);
+  font-weight: 600;
+}
+
+.name-status.bad {
+  color: var(--danger);
+}
+
+.demo-users {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.demo-title {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
+.demo-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.demo-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.demo-user:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .fineprint {
   margin-top: 18px;
   font-size: 12px;
@@ -1098,6 +1151,51 @@ legend {
 
 .add-friend .button {
   white-space: nowrap;
+}
+
+.add-friend input {
+  min-width: 0;
+}
+
+.username-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.username-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* For actions you rarely want, like removing a friend: muted until you point at it. */
+.button.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.button.quiet:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.add-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.members-hero .button {
+  margin-top: 4px;
 }
 
 .code-input.small {

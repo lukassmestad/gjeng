@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { INVITE_CODE_LENGTH, plural } from '../lib.js';
+import { LIMITS, plural } from '../lib.js';
 import { Avatar } from './Avatar.jsx';
-import { BackIcon, CopyIcon, UsersIcon, XIcon } from './Icons.jsx';
+import { BackIcon, CopyIcon, UsersIcon } from './Icons.jsx';
 
 const byOnlineThenName = (onlineIds) => (a, b) =>
   onlineIds.has(b.id) - onlineIds.has(a.id) || a.name.localeCompare(b.name);
@@ -19,8 +19,8 @@ function Person({ user, online, children, sub }) {
   );
 }
 
-export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyCode, onAdd, onRespond, onCancel, onRemove, onMessage }) {
-  const [code, setCode] = useState('');
+export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyName, onAdd, onRespond, onCancel, onRemove, onMessage }) {
+  const [username, setUsername] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -33,8 +33,8 @@ export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyCod
     setBusy(true);
     setError(null);
     try {
-      await onAdd(code);
-      setCode('');
+      await onAdd(username.trim());
+      setUsername('');
     } catch (err) {
       setError(err.message);
     }
@@ -61,30 +61,29 @@ export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyCod
       <div className="friends-scroll">
         <div className="friends-cards">
           <section className="card">
-            <h2>Your friend code</h2>
-            <p className="hint">Share it so people can add you.</p>
-            <button className="code-big" onClick={() => onCopyCode(me.friendCode, 'Friend code')}>
-              <span data-testid="friend-code">{me.friendCode}</span>
+            <h2>Your username</h2>
+            <p className="hint">Friends add you by typing it in.</p>
+            <button className="username-chip" onClick={() => onCopyName(me.name)}>
+              <span data-testid="my-username">@{me.name}</span>
               <CopyIcon />
             </button>
           </section>
 
           <section className="card">
             <h2>Add a friend</h2>
-            <p className="hint">Type in their friend code. You can also add people from your groups' member lists.</p>
+            <p className="hint">Type their username. You can also add people from a group's member list.</p>
             <form className="add-friend" onSubmit={add}>
               <input
-                className="code-input small"
-                aria-label="Friend code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                maxLength={INVITE_CODE_LENGTH}
-                placeholder="CODE"
+                aria-label="Username to add"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={LIMITS.userName}
+                placeholder="Username"
                 autoComplete="off"
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 spellCheck={false}
               />
-              <button className="button primary" disabled={code.length !== INVITE_CODE_LENGTH || busy}>
+              <button className="button primary" disabled={!username.trim() || busy}>
                 Send request
               </button>
             </form>
@@ -117,7 +116,7 @@ export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyCod
         <section aria-label="Your friends">
           <h2 className="section-title">Your friends</h2>
           {list.length === 0 ? (
-            <p className="empty-hint">No friends yet. Share your code, or add people from your groups.</p>
+            <p className="empty-hint">No friends yet. Share your username, or add people from your groups.</p>
           ) : (
             <ul className="person-list">
               {list.map((user) => (
@@ -125,8 +124,8 @@ export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyCod
                   <button className="button primary small" aria-label={`Message ${user.name}`} onClick={() => onMessage(user.id)}>
                     Message
                   </button>
-                  <button className="icon-button" aria-label={`Remove ${user.name}`} title="Remove friend" onClick={() => onRemove(user)}>
-                    <XIcon />
+                  <button className="button small quiet" aria-label={`Remove ${user.name}`} onClick={() => onRemove(user)}>
+                    Remove friend
                   </button>
                 </Person>
               ))}

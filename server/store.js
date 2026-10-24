@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { COLORS, INVITE_CODE_LENGTH, LIMITS, REACTIONS } from '../shared/constants.js';
+import { COLORS, INVITE_CODE_LENGTH, LIMITS, REACTIONS, USERNAME_PATTERN, USERNAME_RULES } from '../shared/constants.js';
 
 // No 0/O or 1/I, so codes are easy to read out loud.
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -14,8 +14,10 @@ function cleanText(value, max, label) {
   return text;
 }
 
-// What other people get to see of a user (no friend code).
+// What the client gets to see of a user.
 const publicUser = ({ id, name, color }) => ({ id, name, color });
+
+const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 // All chat data lives here. It's plain JSON so the server can save it to a file.
 // A "group" is either a normal group (type 'group') or a direct message between two friends (type 'dm').
@@ -25,7 +27,6 @@ export class Store {
     this.groups = data.groups ?? {};
     this.friends = data.friends ?? {}; // userId -> ids of their friends
     this.requests = data.requests ?? {}; // userId -> ids of people who asked to be their friend
-    for (const user of Object.values(this.users)) user.friendCode ??= this.#newFriendCode();
   }
 
   toJSON() {
@@ -36,12 +37,33 @@ export class Store {
     if (typeof id !== 'string' || !/^[\w-]{8,64}$/.test(id)) throw new StoreError('Invalid user id.');
     const user = {
       id,
-      name: cleanText(name, LIMITS.userName, 'Name'),
+      name: this.#cleanUsername(name, id),
       color: COLORS.includes(color) ? color : COLORS[0],
-      friendCode: this.users[id]?.friendCode ?? this.#newFriendCode(),
     };
+    if (this.users[id]?.demo) user.demo = true;
     this.users[id] = user;
     return user;
+  }
+
+  // The made-up people from "npm run demo", for the join screen.
+  demoUsers() {
+    return Object.values(this.users).filter((u) => u.demo).map(publicUser);
+  }
+
+  // For the join screen, so it can say "taken" before you try. `id` is you, if you already have a name.
+  checkUsername(name, id) {
+    try {
+      this.#cleanUsername(name, id);
+      return { available: true };
+    } catch (err) {
+      if (err instanceof StoreError) return { available: false, error: err.message };
+      throw err;
+    }
+  }
+
+  findByUsername(name) {
+    const wanted = String(name ?? '').trim();
+    return Object.values(this.users).find((u) => sameName(u.name, wanted));
   }
 
   // --- Groups ---------------------------------------------------------------
@@ -69,6 +91,17 @@ export class Store {
     group.memberIds.push(userId);
     const message = this.#addSystem(group, `${this.users[userId].name} joined the group`);
     return { group, isNew: true, message };
+  }
+
+  // Members can pull their friends straight into a group, no invite code needed.
+  addToGroup(userId, groupId, friendId) {
+    const group = this.#memberGroup(userId, groupId);
+    if (group.type === 'dm') throw new StoreError("You can't add people to a direct message.");
+    if (!this.areFriends(userId, friendId)) throw new StoreError('You can only add your friends.');
+    if (group.memberIds.includes(friendId)) throw new StoreError(`${this.users[friendId].name} is already in the group.`);
+    group.memberIds.push(friendId);
+    const message = this.#addSystem(group, `${this.users[userId].name} added ${this.users[friendId].name}`);
+    return { group, message };
   }
 
   leaveGroup(userId, groupId) {
@@ -124,13 +157,10 @@ export class Store {
     return (this.friends[a] ?? []).includes(b);
   }
 
-  // Find the other person either by their friend code or by id (the "Add friend" button in a group).
-  addFriend(fromId, { code, friendId } = {}) {
-    const target =
-      code !== undefined
-        ? Object.values(this.users).find((u) => u.friendCode === String(code).trim().toUpperCase())
-        : this.users[friendId];
-    if (!target) throw new StoreError(code !== undefined ? 'No one has that friend code.' : 'User not found.');
+  // Find the other person either by username or by id (the "Add friend" button in a group).
+  addFriend(fromId, { username, friendId } = {}) {
+    const target = username !== undefined ? this.findByUsername(username) : this.users[friendId];
+    if (!target) throw new StoreError(username !== undefined ? 'No one has that username.' : 'User not found.');
     if (target.id === fromId) throw new StoreError("You can't add yourself.");
     if (this.areFriends(fromId, target.id)) throw new StoreError(`You're already friends with ${target.name}.`);
 
@@ -222,6 +252,14 @@ export class Store {
     return this.requests[userId] ?? [];
   }
 
+  #cleanUsername(value, id) {
+    const name = typeof value === 'string' ? value.trim() : '';
+    if (!USERNAME_PATTERN.test(name)) throw new StoreError(USERNAME_RULES);
+    const owner = this.findByUsername(name);
+    if (owner && owner.id !== id) throw new StoreError(`"${name}" is already taken.`);
+    return name;
+  }
+
   #befriend(a, b) {
     for (const [me, other] of [
       [a, b],
@@ -240,10 +278,6 @@ export class Store {
     group.messages.push(message);
     if (group.messages.length > LIMITS.history) group.messages.splice(0, group.messages.length - LIMITS.history);
     return message;
-  }
-
-  #newFriendCode() {
-    return this.#newCode(Object.values(this.users).map((u) => u.friendCode));
   }
 
   #newCode(existing) {

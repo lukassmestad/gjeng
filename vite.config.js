@@ -13,6 +13,7 @@ export default defineConfig({
     // In development the chat server runs separately on port 3000.
     proxy: {
       '/socket.io': { target: 'http://localhost:3000', ws: true },
+      '/api': 'http://localhost:3000',
     },
   },
 });

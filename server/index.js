@@ -5,11 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
+import { seedDemo } from './demo.js';
 import { Store, StoreError } from './store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 3000;
-const DATA_FILE = path.resolve(process.env.DATA_FILE || path.join(root, 'data', 'gjeng.json'));
+// "--demo" starts with fresh made-up people and chats every time, kept apart from your real data.
+const DEMO = process.argv.includes('--demo');
+const DATA_FILE = path.resolve(process.env.DATA_FILE || path.join(root, 'data', DEMO ? 'demo.json' : 'gjeng.json'));
 const DIST_DIR = path.join(root, 'dist');
 
 // --- Saving to disk -------------------------------------------------------
@@ -23,7 +26,7 @@ function loadData() {
   }
 }
 
-const store = new Store(loadData());
+const store = DEMO ? seedDemo() : new Store(loadData());
 let saveTimer = null;
 
 function flush() {
@@ -48,6 +51,16 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 // --- Web server -----------------------------------------------------------
 
 const app = express();
+
+// Lets the join screen check a username while you type.
+app.get('/api/username', (req, res) => {
+  res.json(store.checkUsername(req.query.name, req.query.id));
+});
+
+app.get('/api/demo-users', (_req, res) => {
+  res.json(store.demoUsers());
+});
+
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
 } else {
@@ -160,15 +173,34 @@ io.on('connection', (socket) => {
     return {};
   });
 
-  handle('friend:add', ({ code, friendId }) => {
-    const { status, user } = store.addFriend(userId, code !== undefined ? { code } : { friendId });
+  // New friends get their direct message right away, so it's waiting for both of them.
+  // It's sent before the friends update, so the other person's app already has it when they hear about it.
+  function startDm(friendId) {
+    const { group, isNew } = store.openDm(userId, friendId);
+    if (isNew) for (const id of group.memberIds) addUserToGroup(group, id);
+    return group.id;
+  }
+
+  handle('friend:add', ({ username, friendId }) => {
+    const { status, user } = store.addFriend(userId, username !== undefined ? { username } : { friendId });
+    const groupId = status === 'accepted' ? startDm(user.id) : undefined;
     sendFriends(userId, user.id);
-    return { status, name: user.name };
+    return { status, name: user.name, groupId };
   });
 
   handle('friend:respond', ({ fromId, accept }) => {
     store.respondToRequest(userId, fromId, Boolean(accept));
+    const groupId = accept ? startDm(fromId) : undefined;
     sendFriends(userId, fromId);
+    return { groupId };
+  });
+
+  handle('group:add', ({ groupId, friendId }) => {
+    const { group, message } = store.addToGroup(userId, groupId, friendId);
+    const others = io.to(groupRoom(group.id)).except(userRoom(friendId));
+    others.emit('group:members', { groupId: group.id, members: store.view(group).members });
+    others.emit('message:new', { groupId: group.id, message });
+    addUserToGroup(group, friendId);
     return {};
   });
 
@@ -210,6 +242,10 @@ io.on('connection', (socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`Gjeng is running on http://localhost:${PORT}`);
+  if (DEMO) {
+    console.log('Demo mode: made-up people and chats, reset every time the server starts.');
+    save();
+  }
   const lanAddresses = Object.values(os.networkInterfaces())
     .flat()
     .filter((net) => net?.family === 'IPv4' && !net.internal)

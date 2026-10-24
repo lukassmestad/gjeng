@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { copyText, storage } from '../lib.js';
 import { useChat } from '../useChat.js';
+import AddMembersModal from './AddMembersModal.jsx';
 import ChatPanel from './ChatPanel.jsx';
 import FriendsPanel from './FriendsPanel.jsx';
 import { CreateGroupModal, JoinGroupModal } from './GroupModals.jsx';
@@ -31,7 +32,7 @@ export default function ChatApp({ user, onSignOut }) {
   const readKey = `gjeng.read.${user.id}`;
 
   const [activeId, setActiveId] = useState(null);
-  const [modal, setModal] = useState(null); // 'create' | 'join' | null
+  const [modal, setModal] = useState(null); // 'create' | 'join' | 'add-members' | null
   // Wide screens show the member list as a column (open unless you hide it, and remembered).
   // Smaller screens show it over the chat, only when you ask for it.
   const roomy = useMediaQuery('(min-width: 1101px)');
@@ -46,14 +47,14 @@ export default function ChatApp({ user, onSignOut }) {
   const active = groups[activeId] ?? null;
   const activeLatest = active ? lastActivity(active) : 0;
 
-  // Newest activity first. Empty DMs stay hidden until someone writes, unless you have them open.
+  // Newest activity first.
   const { dms, groupList } = useMemo(() => {
     const sorted = Object.values(groups).sort((a, b) => lastActivity(b) - lastActivity(a));
     return {
-      dms: sorted.filter((g) => g.type === 'dm' && (g.messages.length > 0 || g.id === activeId)),
+      dms: sorted.filter((g) => g.type === 'dm'),
       groupList: sorted.filter((g) => g.type !== 'dm'),
     };
-  }, [groups, activeId]);
+  }, [groups]);
 
   const unread = useMemo(() => {
     const counts = {};
@@ -87,8 +88,15 @@ export default function ChatApp({ user, onSignOut }) {
     document.title = totalUnread ? `(${totalUnread}) Gjeng` : 'Gjeng';
   }, [totalUnread]);
 
+  // Someone accepted your request: tell you, and if you were waiting on the Friends page
+  // (or had nothing open), jump into the new direct message with them.
   useEffect(() => {
-    if (friendNotice) showNotice(friendNotice.text);
+    if (!friendNotice) return;
+    showNotice(friendNotice.text);
+    if (friendNotice.acceptedId && (activeId === FRIENDS || !active)) {
+      const dm = dms.find((g) => g.members.some((m) => m.id === friendNotice.acceptedId));
+      if (dm) setActiveId(dm.id);
+    }
   }, [friendNotice]);
 
   function showNotice(text) {
@@ -141,17 +149,35 @@ export default function ChatApp({ user, onSignOut }) {
     }
   }
 
-  async function addFriendByCode(code) {
-    const { status: result, name } = await actions.addFriendByCode(code);
-    showNotice(result === 'accepted' ? `You and ${name} are now friends` : `Friend request sent to ${name}`);
+  // If you both asked each other you're friends at once, and the new direct message opens.
+  function afterFriendRequest({ status: result, name, groupId }) {
+    if (result === 'accepted') {
+      showNotice(`You and ${name} are now friends`);
+      selectChat(groupId);
+    } else {
+      showNotice(`Friend request sent to ${name}`);
+    }
+  }
+
+  async function addFriendByUsername(username) {
+    afterFriendRequest(await actions.addFriendByUsername(username));
   }
 
   function addFriend(friendId) {
+    attempt(actions.addFriend(friendId).then(afterFriendRequest));
+  }
+
+  // Accepting opens your new direct message right away.
+  function respondToFriend(fromId, accept) {
     attempt(
-      actions.addFriend(friendId).then(({ status: result, name }) =>
-        showNotice(result === 'accepted' ? `You and ${name} are now friends` : `Friend request sent to ${name}`),
-      ),
+      actions.respondToFriend(fromId, accept).then(({ groupId }) => {
+        if (groupId) selectChat(groupId);
+      }),
     );
+  }
+
+  function addToGroup(friendId) {
+    return actions.addToGroup(active.id, friendId);
   }
 
   function removeFriend(friend) {
@@ -170,7 +196,7 @@ export default function ChatApp({ user, onSignOut }) {
   }
 
   function signOut() {
-    if (window.confirm('Sign out? There are no passwords, so you will need invite codes to get back into your groups.')) {
+    if (window.confirm('Sign out? There are no passwords, so your username stays taken and you will need invite codes to get back into your groups.')) {
       onSignOut();
     }
   }
@@ -205,9 +231,9 @@ export default function ChatApp({ user, onSignOut }) {
         friends={friends}
         onlineIds={onlineIds}
         onBack={() => setActiveId(null)}
-        onCopyCode={copyCode}
-        onAdd={addFriendByCode}
-        onRespond={(fromId, accept) => attempt(actions.respondToFriend(fromId, accept))}
+        onCopyName={(name) => copyCode(name, 'Username')}
+        onAdd={addFriendByUsername}
+        onRespond={respondToFriend}
         onCancel={(friendId) => attempt(actions.cancelFriendRequest(friendId))}
         onRemove={removeFriend}
         onMessage={openDm}
@@ -283,11 +309,21 @@ export default function ChatApp({ user, onSignOut }) {
           onCopyCode={copyCode}
           onLeave={() => leaveGroup(active)}
           onAddFriend={addFriend}
-          onRespond={(fromId, accept) => attempt(actions.respondToFriend(fromId, accept))}
+          onRespond={respondToFriend}
           onMessage={openDm}
+          onAddMembers={() => setModal('add-members')}
         />
       )}
 
+      {modal === 'add-members' && isGroup && (
+        <AddMembersModal
+          group={active}
+          friends={friends.friends}
+          onlineIds={onlineIds}
+          onAdd={addToGroup}
+          onClose={() => setModal(null)}
+        />
+      )}
       {modal === 'create' && <CreateGroupModal onCreate={createGroup} onClose={() => setModal(null)} />}
       {modal === 'join' && <JoinGroupModal onJoin={joinGroup} onClose={() => setModal(null)} />}
 

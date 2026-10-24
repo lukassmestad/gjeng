@@ -8,6 +8,7 @@
     "dev": "concurrently -k -n server,client -c blue,magenta \"node --watch server/index.js\" \"vite\"",
     "build": "vite build",
     "start": "node server/index.js",
+    "demo": "npm run build && node server/index.js --demo",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "screenshots": "node scripts/screenshots.mjs"

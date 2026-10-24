@@ -1,6 +1,6 @@
 import { COLORS } from '../../shared/constants.js';
 
-export { COLORS, INVITE_CODE_LENGTH, LIMITS, REACTIONS } from '../../shared/constants.js';
+export { COLORS, INVITE_CODE_LENGTH, LIMITS, REACTIONS, USERNAME_PATTERN, USERNAME_RULES } from '../../shared/constants.js';
 
 // crypto.randomUUID only exists on https/localhost, and phones on the same Wi-Fi use plain http.
 export function makeId() {

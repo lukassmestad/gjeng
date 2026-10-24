@@ -1,6 +1,6 @@
 import { plural } from '../lib.js';
 import { Avatar, GroupAvatar } from './Avatar.jsx';
-import { CopyIcon, XIcon } from './Icons.jsx';
+import { CopyIcon, PlusIcon, XIcon } from './Icons.jsx';
 
 // The button next to someone depends on how you know them.
 function FriendAction({ member, relation, onAddFriend, onRespond, onMessage }) {
@@ -27,7 +27,19 @@ function FriendAction({ member, relation, onAddFriend, onRespond, onMessage }) {
 }
 
 // Member list on the right, like Discord: who's online first, then who's offline.
-export default function MembersPanel({ group, me, friends, onlineIds, onClose, onCopyCode, onLeave, onAddFriend, onRespond, onMessage }) {
+export default function MembersPanel({
+  group,
+  me,
+  friends,
+  onlineIds,
+  onClose,
+  onCopyCode,
+  onLeave,
+  onAddFriend,
+  onRespond,
+  onMessage,
+  onAddMembers,
+}) {
   const sorted = [...group.members].sort((a, b) => a.name.localeCompare(b.name));
   const online = sorted.filter((m) => onlineIds.has(m.id));
   const offline = sorted.filter((m) => !onlineIds.has(m.id));
@@ -74,6 +86,9 @@ export default function MembersPanel({ group, me, friends, onlineIds, onClose, o
         <GroupAvatar group={group} size={80} />
         <p className="members-hero-name">{group.name}</p>
         <p className="hint">{plural(group.members.length, 'member')}</p>
+        <button className="button primary small" onClick={onAddMembers}>
+          <PlusIcon /> Add friends
+        </button>
       </div>
 
       {online.length > 0 && (

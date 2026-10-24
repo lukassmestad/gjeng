@@ -25,7 +25,7 @@ function friendNotice(before, after) {
   const asked = after.incoming.find((u) => !wasIncoming.has(u.id));
   if (asked) return { text: `${asked.name} sent you a friend request` };
   const accepted = after.friends.find((u) => !wasFriend.has(u.id) && wasOutgoing.has(u.id));
-  if (accepted) return { text: `${accepted.name} accepted your friend request` };
+  if (accepted) return { text: `${accepted.name} accepted your friend request`, acceptedId: accepted.id };
   return null;
 }
 
@@ -160,12 +160,13 @@ export function useChat(user) {
       leaveGroup: (groupId) => request('group:leave', { groupId }),
       sendMessage: (groupId, text) => request('message:send', { groupId, text }),
       toggleReaction: (groupId, messageId, emoji) => request('reaction:toggle', { groupId, messageId, emoji }),
-      addFriendByCode: (code) => request('friend:add', { code }),
+      addFriendByUsername: (username) => request('friend:add', { username }),
       addFriend: (friendId) => request('friend:add', { friendId }),
       respondToFriend: (fromId, accept) => request('friend:respond', { fromId, accept }),
       cancelFriendRequest: (friendId) => request('friend:cancel', { friendId }),
       removeFriend: (friendId) => request('friend:remove', { friendId }),
       openDm: (friendId) => request('dm:open', { friendId }),
+      addToGroup: (groupId, friendId) => request('group:add', { groupId, friendId }),
       sendTyping: (groupId) => socketRef.current?.emit('typing', { groupId }),
     }),
     [request],

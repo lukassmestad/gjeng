@@ -19,16 +19,24 @@ describe('users', () => {
     expect(user).toMatchObject({ id: 'user-cy-00003', name: 'Cy', color: COLORS[0] });
   });
 
-  it('gives each user a friend code that stays the same when they reconnect', () => {
-    const code = store.users[ada.id].friendCode;
-    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
-    expect(store.upsertUser({ ...ada, name: 'Ada L' }).friendCode).toBe(code);
-    expect(store.users[bo.id].friendCode).not.toBe(code);
+  it('keeps usernames unique, ignoring upper/lower case', () => {
+    expect(() => store.upsertUser({ id: 'user-x-000001', name: 'ADA' })).toThrow('"ADA" is already taken.');
+    expect(store.checkUsername('ada')).toEqual({ available: false, error: '"ada" is already taken.' });
+    expect(store.checkUsername('Ada', ada.id)).toEqual({ available: true });
+    expect(store.checkUsername('Ingrid')).toEqual({ available: true });
   });
 
-  it('gives friend codes to users saved before friend codes existed', () => {
-    const old = new Store({ users: { 'user-old-0001': { id: 'user-old-0001', name: 'Old', color: COLORS[0] } } });
-    expect(old.users['user-old-0001'].friendCode).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+  it('lets you keep or change your own username when you reconnect', () => {
+    expect(store.upsertUser({ ...ada, name: 'ada' }).name).toBe('ada');
+    expect(store.upsertUser({ ...ada, name: 'Ada_L' }).name).toBe('Ada_L');
+    expect(store.checkUsername('Ada')).toEqual({ available: true });
+  });
+
+  it('only allows usernames you can type: no spaces, 2–20 characters, Norwegian letters are fine', () => {
+    expect(store.upsertUser({ id: 'user-x-000001', name: 'Bjørn.Ærlig_2' }).name).toBe('Bjørn.Ærlig_2');
+    for (const bad of ['Ada Lovelace', 'x', 'a'.repeat(21), 'hi!', '<b>']) {
+      expect(store.checkUsername(bad).available).toBe(false);
+    }
   });
 
   it('rejects empty and too long names', () => {
@@ -141,10 +149,8 @@ describe('messages', () => {
 });
 
 describe('friends', () => {
-  const code = (user) => store.users[user.id].friendCode;
-
-  it('sends a request by friend code, and accepting makes you friends both ways', () => {
-    const result = store.addFriend(ada.id, { code: code(bo).toLowerCase() });
+  it('sends a request by username, and accepting makes you friends both ways', () => {
+    const result = store.addFriend(ada.id, { username: ' bo ' });
     expect(result.status).toBe('sent');
     expect(store.friendsView(bo.id).incoming.map((u) => u.name)).toEqual(['Ada']);
     expect(store.friendsView(ada.id).outgoing.map((u) => u.name)).toEqual(['Bo']);
@@ -155,7 +161,7 @@ describe('friends', () => {
     expect(store.friendsView(bo.id)).toMatchObject({ incoming: [], outgoing: [] });
   });
 
-  it('does not show friend codes to other people', () => {
+  it('only shares name and colour of other people', () => {
     store.addFriend(ada.id, { friendId: bo.id });
     expect(store.friendsView(bo.id).incoming[0]).toEqual({ id: ada.id, name: 'Ada', color: ada.color });
   });
@@ -174,8 +180,8 @@ describe('friends', () => {
   });
 
   it('rejects bad requests with a clear message', () => {
-    expect(() => store.addFriend(ada.id, { code: 'ZZZZZZ' })).toThrow('No one has that friend code.');
-    expect(() => store.addFriend(ada.id, { code: code(ada) })).toThrow("You can't add yourself.");
+    expect(() => store.addFriend(ada.id, { username: 'Nobody' })).toThrow('No one has that username.');
+    expect(() => store.addFriend(ada.id, { username: 'ADA' })).toThrow("You can't add yourself.");
     store.addFriend(ada.id, { friendId: bo.id });
     expect(() => store.addFriend(ada.id, { friendId: bo.id })).toThrow('You already sent Bo a request.');
     store.respondToRequest(bo.id, ada.id, true);
@@ -223,6 +229,36 @@ describe('direct messages', () => {
     const { group } = store.openDm(ada.id, bo.id);
     expect(() => store.leaveGroup(ada.id, group.id)).toThrow("You can't leave a direct message.");
     expect(() => store.joinGroup(ada.id, '')).toThrow('No group has that invite code.');
+  });
+});
+
+describe('adding friends to a group', () => {
+  let group;
+  let cy;
+
+  beforeEach(() => {
+    cy = store.upsertUser({ id: 'user-cy-00003', name: 'Cy' });
+    store.addFriend(ada.id, { friendId: bo.id });
+    store.respondToRequest(bo.id, ada.id, true);
+    group = store.createGroup(ada.id, 'Gym crew');
+  });
+
+  it('adds a friend straight into the group with a message about it', () => {
+    const { message } = store.addToGroup(ada.id, group.id, bo.id);
+    expect(group.memberIds).toEqual([ada.id, bo.id]);
+    expect(message.text).toBe('Ada added Bo');
+  });
+
+  it('only works for your friends, for members, and not twice', () => {
+    expect(() => store.addToGroup(ada.id, group.id, cy.id)).toThrow('You can only add your friends.');
+    expect(() => store.addToGroup(bo.id, group.id, ada.id)).toThrow("You're not in that group.");
+    store.addToGroup(ada.id, group.id, bo.id);
+    expect(() => store.addToGroup(ada.id, group.id, bo.id)).toThrow('Bo is already in the group.');
+  });
+
+  it("doesn't work on direct messages", () => {
+    const { group: dm } = store.openDm(ada.id, bo.id);
+    expect(() => store.addToGroup(ada.id, dm.id, bo.id)).toThrow("You can't add people to a direct message.");
   });
 });
 

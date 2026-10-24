@@ -1,13 +1,19 @@
 import { expect, test } from '@playwright/test';
 
+// Usernames are unique on the server, so every test gets its own, e.g. "Ada_k3f9".
+const unique = (base) => `${base}_${Math.random().toString(36).slice(2, 6)}`;
+
 // Each person gets their own browser context, like two different phones.
-async function newPerson(browser, name) {
+async function newPerson(browser, base) {
+  const name = unique(base);
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto('/');
-  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Username').fill(name);
+  await expect(page.getByText('✓ Available')).toBeVisible();
   await page.getByRole('button', { name: 'Start chatting' }).click();
   await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
+  page.name = name;
   return page;
 }
 
@@ -25,8 +31,18 @@ async function joinGroup(page, code) {
   await page.getByRole('button', { name: 'Join group' }).click();
 }
 
+async function becomeFriends(asker, accepter) {
+  await asker.getByRole('button', { name: 'Friends' }).click();
+  await asker.getByLabel('Username to add').fill(accepter.name);
+  await asker.getByRole('button', { name: 'Send request' }).click();
+  await accepter.getByRole('button', { name: 'Friends' }).click();
+  await accepter.getByRole('region', { name: 'Friend requests' }).getByRole('button', { name: 'Accept' }).click();
+  await expect(accepter.getByRole('heading', { level: 1, name: asker.name })).toBeVisible();
+}
+
 const composer = (page) => page.getByRole('textbox', { name: /^Message/ });
 const messages = (page) => page.getByRole('log', { name: 'Messages' });
+const chats = (page) => page.getByRole('navigation', { name: 'Chats' });
 
 test('two people can chat in a group in real time', async ({ browser }) => {
   const ada = await newPerson(browser, 'Ada');
@@ -37,20 +53,20 @@ test('two people can chat in a group in real time', async ({ browser }) => {
 
   await joinGroup(bo, code);
   await expect(bo.getByRole('heading', { level: 1, name: 'Gym crew' })).toBeVisible();
-  await expect(messages(ada).getByText('Bo joined the group')).toBeVisible();
+  await expect(messages(ada).getByText(`${bo.name} joined the group`)).toBeVisible();
   await expect(ada.getByText('2 members · 2 online')).toBeVisible();
 
   // Typing shows up for the other person before the message is sent.
   await composer(bo).fill('Leg day tomorrow?');
-  await expect(ada.getByText('Bo is typing…')).toBeVisible();
+  await expect(ada.getByText(`${bo.name} is typing…`)).toBeVisible();
   await composer(bo).press('Enter');
   await expect(messages(ada).getByText('Leg day tomorrow?')).toBeVisible();
+  await expect(ada.getByText(`${bo.name} is typing…`)).toBeHidden();
 
   // Your own messages show your name like everyone else's, not "You".
   const bosMessage = messages(bo).locator('.message', { hasText: 'Leg day tomorrow?' });
-  await expect(bosMessage.locator('.message-author')).toHaveText('Bo');
-  await expect(bo.getByRole('navigation', { name: 'Chats' })).toContainText('Bo: Leg day tomorrow?');
-  await expect(ada.getByText('Bo is typing…')).toBeHidden();
+  await expect(bosMessage.locator('.message-author')).toHaveText(bo.name);
+  await expect(chats(bo)).toContainText(`${bo.name}: Leg day tomorrow?`);
 
   await composer(ada).fill('Yes! 6pm');
   await composer(ada).press('Enter');
@@ -60,11 +76,25 @@ test('two people can chat in a group in real time', async ({ browser }) => {
   const adasMessage = messages(bo).locator('.message', { hasText: 'Yes! 6pm' });
   await adasMessage.getByText('Yes! 6pm').hover();
   await adasMessage.getByRole('button', { name: 'React with 🔥' }).click();
-  await expect(ada.getByRole('button', { name: /🔥 1, by Bo/ })).toBeVisible();
+  await expect(ada.getByRole('button', { name: `🔥 1, by ${bo.name}` })).toBeVisible();
 
   // Clicking your own reaction again removes it.
-  await adasMessage.getByRole('button', { name: /🔥 1, by Bo/ }).click();
-  await expect(ada.getByRole('button', { name: /🔥 1, by Bo/ })).toBeHidden();
+  await adasMessage.getByRole('button', { name: `🔥 1, by ${bo.name}` }).click();
+  await expect(ada.getByRole('button', { name: `🔥 1, by ${bo.name}` })).toBeHidden();
+});
+
+test('usernames are unique and must be typeable', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  const page = await (await browser.newContext()).newPage();
+  await page.goto('/');
+
+  await page.getByLabel('Username').fill(ada.name.toUpperCase());
+  await expect(page.getByText(`"${ada.name.toUpperCase()}" is already taken.`)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start chatting' })).toBeDisabled();
+
+  await page.getByLabel('Username').fill('Ada Lovelace');
+  await expect(page.getByText('without spaces')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start chatting' })).toBeDisabled();
 });
 
 test('a wrong invite code shows an error', async ({ browser }) => {
@@ -86,7 +116,7 @@ test('unread messages get a badge until you open the group', async ({ browser })
   await composer(bo).fill('Anyone there?');
   await composer(bo).press('Enter');
 
-  const gymItem = ada.getByRole('navigation', { name: 'Chats' }).getByRole('button', { name: /Gym crew/ });
+  const gymItem = chats(ada).getByRole('button', { name: /Gym crew/ });
   await expect(gymItem.getByLabel('1 unread')).toBeVisible();
   await expect(ada).toHaveTitle('(1) Gjeng');
 
@@ -115,43 +145,42 @@ test('leaving a group removes it from your list', async ({ browser }) => {
   await expect(bo.getByRole('heading', { level: 1, name: 'Book club' })).toBeVisible();
 
   bo.once('dialog', (dialog) => dialog.accept());
-  await expect(bo.getByRole('complementary', { name: 'Members' })).toBeVisible();
   await bo.getByRole('button', { name: 'Leave group' }).click();
 
   await expect(bo.getByRole('heading', { name: 'Welcome to Gjeng' })).toBeVisible();
-  await expect(messages(ada).getByText('Bo left the group')).toBeVisible();
+  await expect(messages(ada).getByText(`${bo.name} left the group`)).toBeVisible();
   await expect(ada.getByText('1 member · 1 online')).toBeVisible();
 });
 
-test('friends can add each other by code and chat privately', async ({ browser }) => {
+test('accepting a friend request opens your direct message for both of you', async ({ browser }) => {
   const ada = await newPerson(browser, 'Ada');
   const bo = await newPerson(browser, 'Bo');
 
-  // Bo shares his friend code and Ada sends a request with it.
-  await bo.getByRole('button', { name: 'Friends' }).click();
-  const code = (await bo.getByTestId('friend-code').textContent()).trim();
+  // Ada adds Bo by typing his username (in a different letter case) and waits on the Friends page.
   await ada.getByRole('button', { name: 'Friends' }).click();
-  await ada.getByLabel('Friend code').fill(code);
+  await ada.getByLabel('Username to add').fill(bo.name.toLowerCase());
   await ada.getByRole('button', { name: 'Send request' }).click();
-  await expect(ada.getByRole('region', { name: 'Sent requests' })).toContainText('Bo');
+  await expect(ada.getByRole('region', { name: 'Sent requests' })).toContainText(bo.name);
 
-  // Bo gets a badge and a notice, and accepts.
+  // Bo gets a badge and a notice, accepts, and lands in the new DM.
   await expect(bo.getByLabel('1 friend requests')).toBeVisible();
-  await expect(bo.getByText('Ada sent you a friend request')).toBeVisible();
+  await expect(bo.getByText(`${ada.name} sent you a friend request`)).toBeVisible();
+  await bo.getByRole('button', { name: 'Friends' }).click();
   await bo.getByRole('region', { name: 'Friend requests' }).getByRole('button', { name: 'Accept' }).click();
-  await expect(ada.getByText('Bo accepted your friend request')).toBeVisible();
+  await expect(bo.getByRole('heading', { level: 1, name: ada.name })).toBeVisible();
 
-  // Ada opens a direct message, and only Bo gets it.
-  await ada.getByRole('button', { name: 'Message Bo' }).click();
-  await expect(ada.getByRole('heading', { level: 1, name: 'Bo' })).toBeVisible();
-  await expect(ada.getByText('This is the start of your direct messages with Bo.')).toBeVisible();
+  // Ada was waiting on the Friends page, so she's taken to the DM too.
+  await expect(ada.getByText(`${bo.name} accepted your friend request`)).toBeVisible();
+  await expect(ada.getByRole('heading', { level: 1, name: bo.name })).toBeVisible();
+  await expect(ada.getByText(`This is the start of your direct messages with ${bo.name}.`)).toBeVisible();
+
   await composer(ada).fill('Want to grab lunch?');
   await composer(ada).press('Enter');
-
-  const dmItem = bo.getByRole('navigation', { name: 'Chats' }).getByRole('button', { name: /Ada/ });
-  await expect(dmItem.getByLabel('1 unread')).toBeVisible();
-  await dmItem.click();
   await expect(messages(bo).getByText('Want to grab lunch?')).toBeVisible();
+
+  // Both still see each other as friends.
+  await ada.getByRole('button', { name: 'Friends' }).click();
+  await expect(ada.getByRole('region', { name: 'Your friends' })).toContainText(bo.name);
 });
 
 test('you can add friends from a group member list', async ({ browser }) => {
@@ -159,16 +188,32 @@ test('you can add friends from a group member list', async ({ browser }) => {
   const bo = await newPerson(browser, 'Bo');
   const code = await createGroup(ada, 'Climbing');
   await joinGroup(bo, code);
-  await expect(messages(ada).getByText('Bo joined the group')).toBeVisible();
+  await expect(messages(ada).getByText(`${bo.name} joined the group`)).toBeVisible();
 
-  await expect(ada.getByRole('complementary', { name: 'Members' })).toBeVisible();
-  await ada.getByRole('button', { name: 'Add Bo as friend' }).click();
+  await ada.getByRole('button', { name: `Add ${bo.name} as friend` }).click();
   await expect(ada.getByRole('complementary', { name: 'Members' }).getByText('Request sent', { exact: true })).toBeVisible();
 
-  await expect(bo.getByRole('complementary', { name: 'Members' })).toBeVisible();
-  await bo.getByRole('button', { name: 'Accept Ada' }).click();
-  await expect(bo.getByRole('button', { name: 'Message Ada' })).toBeVisible();
-  await expect(ada.getByRole('button', { name: 'Message Bo' })).toBeVisible();
+  await bo.getByRole('button', { name: `Accept ${ada.name}` }).click();
+  await expect(bo.getByRole('heading', { level: 1, name: ada.name })).toBeVisible();
+  // Ada is busy in the group, so she stays there, and the DM appears in her list.
+  await expect(ada.getByRole('heading', { level: 1, name: 'Climbing' })).toBeVisible();
+  await expect(chats(ada).getByRole('button', { name: `${bo.name} No messages yet` })).toBeVisible();
+  await expect(ada.getByRole('button', { name: `Message ${bo.name}` })).toBeVisible();
+});
+
+test('you can add your friends straight into a group', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  const bo = await newPerson(browser, 'Bo');
+  await becomeFriends(bo, ada);
+
+  await createGroup(ada, 'Cabin trip');
+  await ada.getByRole('button', { name: 'Add friends' }).click();
+  await ada.getByRole('button', { name: `Add ${bo.name} to the group` }).click();
+  await expect(ada.getByRole('dialog').getByText('Added ✓')).toBeVisible();
+  await ada.getByRole('button', { name: 'Done' }).click();
+
+  await expect(messages(ada).getByText(`${ada.name} added ${bo.name}`)).toBeVisible();
+  await expect(chats(bo).getByRole('button', { name: /Cabin trip/ })).toBeVisible();
 });
 
 test('the member list shows who is online and who is offline', async ({ browser }) => {
@@ -180,12 +225,12 @@ test('the member list shows who is online and who is offline', async ({ browser 
   // On a wide screen the list is open next to the chat without clicking anything.
   const members = ada.getByRole('complementary', { name: 'Members' });
   await expect(members.getByRole('heading', { name: 'Online — 2' })).toBeVisible();
-  await expect(members.getByRole('region', { name: 'Online members' })).toContainText('Bo');
+  await expect(members.getByRole('region', { name: 'Online members' })).toContainText(bo.name);
 
   // Bo closes the app and moves down to Offline.
   await bo.context().close();
   await expect(members.getByRole('heading', { name: 'Offline — 1' })).toBeVisible();
-  await expect(members.getByRole('region', { name: 'Offline members' })).toContainText('Bo');
+  await expect(members.getByRole('region', { name: 'Offline members' })).toContainText(bo.name);
 
   // Hiding the list is remembered after a reload.
   await ada.getByRole('button', { name: 'Members', exact: true }).click();
