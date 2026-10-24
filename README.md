@@ -12,9 +12,21 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 | --- | --- |
 | <img src="docs/chat.png" alt="A group chat with reactions, a typing indicator and the member list"> | <img src="docs/friends.png" alt="Friends page with your username, requests and friends"> |
 
-| Pictures, files and emoji | Your profile |
+| Pictures, files and emoji | GIF stickers |
 | --- | --- |
-| <img src="docs/attachments.png" alt="A direct message with a picture, a file and the emoji picker"> | <img src="docs/profile.png" alt="Editing your display name, picture and colour"> |
+| <img src="docs/attachments.png" alt="A direct message with a picture, a file and the emoji picker"> | <img src="docs/gifs.png" alt="The GIF tab with animated stickers"> |
+
+| Profile card | Settings |
+| --- | --- |
+| <img src="docs/profile-card.png" alt="Sara's profile card with banner, about me, shared groups and mutual friends"> | <img src="docs/settings-profile.png" alt="Editing your profile with a live preview"> |
+
+| Themes and colour wheels | Accessibility |
+| --- | --- |
+| <img src="docs/settings-appearance.png" alt="The Midnight theme and the colour wheels"> | <img src="docs/settings-accessibility.png" alt="Accessibility settings"> |
+
+| Searching messages | Retro dark theme, narrow sidebar |
+| --- | --- |
+| <img src="docs/search.png" alt="Searching a chat for pizza"> | <img src="docs/retro-dark.png" alt="The Retro dark theme with the sidebar dragged narrow"> |
 
 | Phone | Dark mode |
 | --- | --- |
@@ -23,11 +35,16 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 ## What it does
 
 - **Join with a unique username.** The join screen checks live whether the name is free. There's no password, so nothing sensitive is stored.
-- **Profiles:** upload a profile picture, set a display name (spaces and emoji are fine) and pick a colour. Your username stays the same, since friends add you by it.
+- **Profiles:** upload a picture or pick a built-in one, and set a display name (spaces and emoji are fine), an "About me", a name colour and a banner (a colour or a picture). Your username stays the same, since friends add you by it.
+- **Profile cards:** click anyone's picture or name to see their card: banner, status, about me, when they joined, shared groups and mutual friends, with buttons to message or add them.
+- **Privacy:** choose who can send you friend requests (everyone, friends of friends, no one), who can see your friends (everyone, friends of friends, friends, no one), and whether others see when you're online. The server enforces it.
+- **Appearance:** themes (Light, Dark, Cream, Retro, Retro dark, Midnight, Forest, High contrast), plus **colour wheels** for the background, the details and the text. Text colours too close to the background are adjusted until they're readable.
+- **Accessibility:** text size, a high-contrast theme, less motion, status shown with symbols (not only colours), stronger focus outlines, easier-to-read text, always-visible message times, and screen-reader announcements. **Accessibility mode** turns it all on at once, and you can tick it when you sign up.
 - **Status:** Online, Away or Do not disturb, shown bottom-left and as a coloured dot for everyone else. Do not disturb hides incoming call pop-ups.
 - **Groups:** create a group, add your friends straight in or share an invite code. The code stays **hidden** (••••••) until you press Show, so people next to you can't read it off your screen.
 - **Live chat:** messages show up instantly. It also shows "Jonas is typing…" and who is online. Your own messages have a thin coloured bar on the left.
-- **Pictures, files and emoji:** attach a picture or file (or paste a screenshot), and add emoji from the picker. Pictures open big when clicked; other files download.
+- **Pictures, files, emoji and GIFs:** attach a picture or file (or paste a screenshot), and add emoji from the picker. The **GIF tab** has animated stickers drawn by the app itself, recently sent GIFs, favourites and search. Pictures open big when clicked; other files download.
+- **Search:** search one chat or all of them by words, by person, and by type (text, pictures, files, links). Matches are highlighted, and clicking one jumps to the message.
 - **Reactions:** 👍 👎 ❤️ 😂 😮 😡 🔥
 - **Voice calls** in groups and direct messages, with a call area like Discord's:
   - Everyone in the call shows as a bubble. Whoever is **talking** gets a green ring and a speaker icon.
@@ -59,9 +76,9 @@ Then open <http://localhost:3000>.
 ## Tests
 
 ```bash
-npm test                      # 46 unit tests: chat, friends, profiles, files, calls, demo data (Vitest)
+npm test                      # 54 unit tests: chat, friends, privacy, profiles, files, calls, demo data (Vitest)
 npx playwright install chromium   # first time only
-npm run test:e2e              # 18 browser tests with two or more people (Playwright)
+npm run test:e2e              # 26 browser tests with two or more people (Playwright)
 npm run screenshots           # starts a demo server and saves screenshots to captures/
 ```
 
@@ -74,7 +91,8 @@ The browser tests use Chrome's fake microphone, which plays a beep. The call tes
 | Front end | React 19, built with Vite |
 | Server | Node.js with Express and Socket.IO (WebSockets for the live updates) |
 | Voice calls | WebRTC, straight between the browsers. The server only introduces them to each other. |
-| Storage | One JSON file (`data/gjeng.json`). Files from messages are kept apart from the chat history and fetched by link. |
+| Storage | One JSON file (`data/gjeng.json`). Files from messages are kept apart from the chat history and fetched by link. Appearance and accessibility settings are saved in the browser, per device. |
+| GIF stickers | Drawn on a canvas and turned into GIF files in the browser with [gifenc](https://github.com/mattdesl/gifenc) (MIT licence). No GIF service or API key. |
 | Tests | Vitest (logic) and Playwright (real browsers) |
 
 ```
@@ -92,6 +110,7 @@ The server checks everything: who is in a group, message and file sizes, that pr
 This is a prototype, not a finished product:
 
 - **No real login.** Your identity is a random ID saved in the browser. If you clear site data or sign out, you need invite codes to get back into your groups.
+- **GIFs are our own stickers** plus GIFs people send. Big GIF libraries like GIPHY or Tenor need an API key and their terms, and VibeOff's rules don't allow calling company APIs.
 - **Calls work on the same network.** Calling across the internet would need a relay server (STUN/TURN), and those are run by outside companies. In a call, everyone connects to everyone, which suits small groups.
 - **One server and one data file.** That's fine for a class demo, but it wouldn't hold up with lots of users. Files can be at most 1 MB.
 - No editing or deleting messages.

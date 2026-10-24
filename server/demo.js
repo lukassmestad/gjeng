@@ -5,35 +5,33 @@ import { Store } from './store.js';
 
 const MINUTE = 60 * 1000;
 
-// A profile picture drawn in code: an emoji on a colour gradient. No real photos.
-function emojiPicture(emoji, from, to) {
-  const svg =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
-    `<defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>` +
-    '<rect width="100" height="100" fill="url(#g)"/>' +
-    `<text x="50" y="56" font-size="54" text-anchor="middle" dominant-baseline="middle">${emoji}</text></svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-}
+const DAY = 24 * 60 * MINUTE;
 
-// [key, username, colour, display name, picture]. Some have neither, to show the plain initials too.
+// Made-up profiles. Pictures are the built-in ones (emoji drawings), and some people have none,
+// to show the plain initials too. A few have stricter privacy settings, to show those off.
 const PEOPLE = [
-  ['emma', 'Emma', 0, null, emojiPicture('🏋️', '#ffb37a', '#e8590c')],
-  ['jonas', 'Jonas', 4, null, emojiPicture('🎸', '#74c0fc', '#1c7ed6')],
-  ['sara', 'Sara', 2, 'Sara ✨', emojiPicture('🦊', '#e599f7', '#ae3ec9')],
-  ['ola', 'Ola', 6, null, emojiPicture('🚲', '#8ce99a', '#2f9e44')],
-  ['noah', 'Noah', 1, 'Noah H.', null],
-  ['ingrid', 'Ingrid', 3, null, null],
-  ['maja', 'Maja', 7, null, null],
+  { key: 'emma', name: 'Emma', colour: 0, avatar: 'lifter', banner: '#e8590c', days: 120, bio: 'Leg day enthusiast. Computer science, 2nd year.' },
+  { key: 'jonas', name: 'Jonas', colour: 4, avatar: 'guitar', banner: '#1c7ed6', days: 95, bio: 'Plays guitar badly, lifts slightly better.' },
+  { key: 'sara', name: 'Sara', colour: 2, displayName: 'Sara ✨', avatar: 'fox', banner: '#ae3ec9', days: 80, bio: '100 kg club 🎉' },
+  { key: 'ola', name: 'Ola', colour: 6, avatar: 'bike', days: 60, bio: 'Bikes everywhere. Makes the best tacos in the kollektiv.' },
+  { key: 'noah', name: 'Noah', colour: 1, displayName: 'Noah H.', days: 40, privacy: { friendRequests: 'friends-of-friends' } },
+  { key: 'ingrid', name: 'Ingrid', colour: 3, days: 30, privacy: { friendsVisibility: 'nobody' } },
+  { key: 'maja', name: 'Maja', colour: 7, days: 12 },
 ];
 
 export function seedDemo(store = new Store()) {
   const p = {};
-  for (const [key, name, colour, displayName, picture] of PEOPLE) {
-    p[key] = store.upsertUser({ id: `demo-${key}-0000`, name, color: COLORS[colour] });
-    p[key].demo = true;
-    if (displayName) p[key].displayName = displayName;
-    // Set directly: uploads only accept real photos, but these are our own drawings.
-    if (picture) p[key].avatar = picture;
+  for (const person of PEOPLE) {
+    const user = store.upsertUser({ id: `demo-${person.key}-0000`, name: person.name, color: COLORS[person.colour] });
+    user.demo = true;
+    user.joinedAt = Date.now() - person.days * DAY;
+    store.updateProfile(user.id, {
+      displayName: person.displayName,
+      avatar: person.avatar ? `preset:${person.avatar}` : undefined,
+      bio: person.bio,
+      bannerColor: person.banner,
+    });
+    p[person.key] = user;
   }
 
   const befriend = (a, b) => {
@@ -47,9 +45,12 @@ export function seedDemo(store = new Store()) {
   befriend(p.sara, p.ingrid);
   befriend(p.jonas, p.noah);
   befriend(p.ingrid, p.maja);
+  befriend(p.sara, p.jonas);
   // Requests still waiting for an answer.
   store.addFriend(p.maja.id, { friendId: p.emma.id });
   store.addFriend(p.noah.id, { friendId: p.sara.id });
+  // Privacy last, so the made-up friendships above aren't blocked by it.
+  for (const person of PEOPLE) if (person.privacy) store.updatePrivacy(p[person.key].id, person.privacy);
 
   const group = (creator, name, members) => {
     const g = store.createGroup(creator.id, name);

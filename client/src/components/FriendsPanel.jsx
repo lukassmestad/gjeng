@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LIMITS, plural, presenceLabel, presenceOf, shownName } from '../lib.js';
 import { Avatar } from './Avatar.jsx';
 import { BackIcon, CopyIcon, UsersIcon } from './Icons.jsx';
+import ProfileLink from './ProfileLink.jsx';
 
 const byOnlineThenName = (onlineIds) => (a, b) =>
   onlineIds.has(b.id) - onlineIds.has(a.id) || shownName(a).localeCompare(shownName(b));
@@ -9,7 +10,9 @@ const byOnlineThenName = (onlineIds) => (a, b) =>
 function Person({ user, online, children, sub }) {
   return (
     <li className="person">
-      <Avatar user={user} size={40} online={online} />
+      <ProfileLink userId={user.id} label={shownName(user)}>
+        <Avatar user={user} size={40} online={online} />
+      </ProfileLink>
       <span className="person-text">
         <span className="person-name">
           {shownName(user)} <span className="person-handle">@{user.name}</span>

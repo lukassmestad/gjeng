@@ -1,4 +1,4 @@
-import { groupColor, initials, presenceLabel, presenceOf, shownName } from '../lib.js';
+import { avatarSrc, groupColor, initials, presenceLabel, presenceOf, shownName } from '../lib.js';
 
 // A round profile picture, or initials on the user's colour if they haven't uploaded one.
 // Pass `online` to show the status dot (green online, yellow away, red do-not-disturb, grey offline).
@@ -6,7 +6,7 @@ export function Avatar({ user, size = 36, online }) {
   const presence = online === undefined ? null : presenceOf(user, online);
   return (
     <span className="avatar" style={{ '--size': `${size}px`, background: user.color }} aria-hidden="true">
-      {user.avatar ? <img src={user.avatar} alt="" draggable={false} /> : initials(shownName(user))}
+      {user.avatar ? <img src={avatarSrc(user.avatar)} alt="" draggable={false} /> : initials(shownName(user))}
       {presence && <span className={`presence-dot ${presence}`} title={presenceLabel(presence)} />}
     </span>
   );
@@ -40,7 +40,11 @@ export function GroupAvatar({ group, size = 40 }) {
     >
       {shown.map((member) => (
         <span key={member.id} className="mini-avatar" style={{ background: member.color, fontSize: cell * 0.5 }}>
-          {member.avatar ? <img src={member.avatar} alt="" draggable={false} /> : showText && initials(shownName(member), 1)}
+          {member.avatar ? (
+            <img src={avatarSrc(member.avatar)} alt="" draggable={false} />
+          ) : (
+            showText && initials(shownName(member), 1)
+          )}
         </span>
       ))}
       {extra > 0 && (

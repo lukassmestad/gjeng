@@ -20,7 +20,7 @@ async function toAttachment(file) {
   return { kind: file.type === 'image/gif' ? 'image' : 'file', name: file.name || 'file', data, size: file.size };
 }
 
-export default function Composer({ groupName, onSend, onTyping, onError }) {
+export default function Composer({ groupName, userId, recentGifs, onSend, onTyping, onError }) {
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -99,6 +99,16 @@ export default function Composer({ groupName, onSend, onTyping, onError }) {
     fieldRef.current?.focus();
   }
 
+  // GIFs are sent straight away, on their own, like in other chat apps.
+  async function sendGif(gif) {
+    setEmojiOpen(false);
+    try {
+      await onSend('', gif);
+    } catch (err) {
+      onError(err.message);
+    }
+  }
+
   function keyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -161,14 +171,22 @@ export default function Composer({ groupName, onSend, onTyping, onError }) {
             <button
               type="button"
               className={`composer-tool ${emojiOpen ? 'pressed' : ''}`}
-              aria-label="Add an emoji"
-              title="Add an emoji"
+              aria-label="Add an emoji or GIF"
+              title="Emoji and GIFs"
               aria-expanded={emojiOpen}
               onClick={() => setEmojiOpen((open) => !open)}
             >
               <SmileIcon />
             </button>
-            {emojiOpen && <EmojiPicker onPick={addEmoji} onClose={() => setEmojiOpen(false)} />}
+            {emojiOpen && (
+              <EmojiPicker
+                userId={userId}
+                recentGifs={recentGifs}
+                onPick={addEmoji}
+                onSendGif={sendGif}
+                onClose={() => setEmojiOpen(false)}
+              />
+            )}
           </span>
         </div>
         <button className="send-button" aria-label="Send" disabled={!text.trim() && !attachment}>

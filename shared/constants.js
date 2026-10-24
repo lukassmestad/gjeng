@@ -34,6 +34,16 @@ export const AVATAR_MAX_LENGTH = 200_000;
 export const ATTACHMENT_MAX_BYTES = 1_000_000;
 
 // "Invisible" is left out on purpose: in a small friend group it mostly causes confusion.
+// (You can still hide when you're online, in the privacy settings.)
 export const STATUS_VALUES = ['online', 'away', 'dnd'];
+
+export const BIO_MAX = 190;
+export const BANNER_MAX_LENGTH = 300_000;
+
+// Privacy choices, with the default first.
+export const PRIVACY_OPTIONS = {
+  friendRequests: ['everyone', 'friends-of-friends', 'nobody'],
+  friendsVisibility: ['friends-of-friends', 'everyone', 'friends', 'nobody'],
+};
 
 export const INVITE_CODE_LENGTH = 6;

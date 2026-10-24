@@ -132,9 +132,11 @@ test('display name, picture and colour show up for others', async ({ browser }) 
   await ada.getByRole('button', { name: 'Profile settings' }).click();
   await ada.getByLabel('Display name').fill('Ada Lovelace 💻');
   await ada.getByLabel('Choose a profile picture').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG });
-  await expect(ada.getByRole('dialog').locator('.profile-top img')).toBeVisible();
-  await ada.getByRole('button', { name: 'Colour 5' }).click();
-  await ada.getByRole('button', { name: 'Save' }).click();
+  await expect(ada.getByRole('dialog').locator('.profile-preview .avatar img')).toBeVisible();
+  await ada.getByRole('button', { name: 'Colour 5', exact: true }).click();
+  await ada.getByRole('button', { name: 'Save changes' }).click();
+  await expect(ada.getByText('Saved ✓')).toBeVisible();
+  await ada.getByRole('button', { name: 'Close settings' }).click();
 
   // The username stays, everyone else sees the new name and picture, even on old messages.
   await expect(ada.locator('.me-name')).toHaveText('Ada Lovelace 💻');

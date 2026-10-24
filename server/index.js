@@ -104,7 +104,8 @@ const groupRoom = (groupId) => `group:${groupId}`;
 const userRoom = (userId) => `user:${userId}`;
 const onlineCount = new Map(); // userId -> number of open tabs/devices
 
-const onlineIds = () => [...onlineCount.keys()];
+// People who chose to always look offline are left out.
+const onlineIds = () => [...onlineCount.keys()].filter((id) => store.showsOnline(id));
 
 // --- Voice calls ------------------------------------------------------------
 // The server only keeps track of who is in which call and passes connection messages
@@ -182,6 +183,7 @@ io.on('connection', (socket) => {
     me: publicUser(store.users[userId]),
     groups: groups.map((g) => store.view(g)),
     friends: store.friendsView(userId),
+    privacy: store.privacyOf(userId),
     calls: groups.filter((g) => calls.has(g.id)).map((g) => callView(g.id)),
     online: onlineIds(),
   });
@@ -214,10 +216,20 @@ io.on('connection', (socket) => {
     for (const id of ids) io.to(userRoom(id)).emit('friends', store.friendsView(id));
   }
 
-  handle('profile:update', ({ displayName, color, avatar, status }) => {
-    const user = store.updateProfile(userId, { displayName, color, avatar, status });
+  handle('profile:update', ({ displayName, color, avatar, status, bio, bannerColor, bannerImage }) => {
+    const user = store.updateProfile(userId, { displayName, color, avatar, status, bio, bannerColor, bannerImage });
     io.emit('user:update', publicUser(user));
     return { me: publicUser(user) };
+  });
+
+  // Someone's profile card, as you're allowed to see it.
+  handle('profile:get', ({ userId: otherId }) => store.profileFor(userId, otherId));
+
+  handle('privacy:update', (changes) => {
+    const privacy = store.updatePrivacy(userId, changes);
+    io.to(userRoom(userId)).emit('privacy', privacy);
+    io.emit('presence', onlineIds()); // in case you hid or showed that you're online
+    return { privacy };
   });
 
   handle('group:create', ({ name }) => {

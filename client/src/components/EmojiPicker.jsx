@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import GifPanel from './GifPanel.jsx';
 
 const EMOJI = [
   '😀', '😂', '🤣', '😊', '😍', '🥰', '😎', '🤩',
@@ -9,8 +10,9 @@ const EMOJI = [
   '📚', '💻', '🚲', '🏠', '🌧️', '☀️', '🐶', '🦊',
 ];
 
-// A small grid of emoji above the message box. Clicking one adds it to your message.
-export default function EmojiPicker({ onPick, onClose }) {
+// Pops up above the message box with two tabs: emoji (added to your message) and GIFs (sent straight away).
+export default function EmojiPicker({ userId, recentGifs, onPick, onSendGif, onClose }) {
+  const [tab, setTab] = useState('emoji');
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -28,12 +30,26 @@ export default function EmojiPicker({ onPick, onClose }) {
   }, []);
 
   return (
-    <div className="emoji-picker" ref={ref} role="dialog" aria-label="Pick an emoji">
-      {EMOJI.map((emoji) => (
-        <button key={emoji} type="button" aria-label={`Add ${emoji}`} onClick={() => onPick(emoji)}>
-          {emoji}
+    <div className={`emoji-picker ${tab}`} ref={ref} role="dialog" aria-label="Emoji and GIFs">
+      <div className="picker-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === 'emoji'} onClick={() => setTab('emoji')}>
+          Emoji
         </button>
-      ))}
+        <button type="button" role="tab" aria-selected={tab === 'gifs'} onClick={() => setTab('gifs')}>
+          GIFs
+        </button>
+      </div>
+      {tab === 'emoji' ? (
+        <div className="emoji-grid">
+          {EMOJI.map((emoji) => (
+            <button key={emoji} type="button" aria-label={`Add ${emoji}`} onClick={() => onPick(emoji)}>
+              {emoji}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <GifPanel userId={userId} recentGifs={recentGifs} onSend={onSendGif} />
+      )}
     </div>
   );
 }

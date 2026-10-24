@@ -16,6 +16,7 @@ const initialState = {
   socketId: null,
   groups: {},
   friends: { friends: [], incoming: [], outgoing: [] },
+  privacy: null, // your own privacy settings
   friendNotice: null, // { text } when a request arrives or gets accepted
   online: [],
   typing: {}, // groupId -> { userId: name }
@@ -81,6 +82,7 @@ function reducer(state, action) {
         online: action.online,
         groups: Object.fromEntries(action.groups.map((g) => [g.id, g])),
         friends: action.friends,
+        privacy: action.privacy,
         calls: Object.fromEntries(action.calls.map((c) => [c.groupId, c])),
         typing: {},
       };
@@ -92,6 +94,8 @@ function reducer(state, action) {
       };
     case 'user:update':
       return replaceUser(state, action.user);
+    case 'privacy':
+      return { ...state, privacy: action.privacy };
     case 'group:upsert':
       return { ...state, groups: { ...state.groups, [action.group.id]: action.group } };
     case 'group:removed': {
@@ -172,6 +176,7 @@ export function useChat(user) {
     socket.on('presence', (online) => dispatch({ type: 'presence', online }));
     socket.on('friends', (friends) => dispatch({ type: 'friends', friends }));
     socket.on('user:update', (changed) => dispatch({ type: 'user:update', user: changed }));
+    socket.on('privacy', (privacy) => dispatch({ type: 'privacy', privacy }));
     socket.on('group:upsert', (group) => dispatch({ type: 'group:upsert', group }));
     socket.on('group:removed', ({ groupId }) => dispatch({ type: 'group:removed', groupId }));
     socket.on('group:members', ({ groupId, members }) => dispatch({ type: 'group:members', groupId, members }));
@@ -213,6 +218,8 @@ export function useChat(user) {
       openDm: (friendId) => request('dm:open', { friendId }),
       addToGroup: (groupId, friendId) => request('group:add', { groupId, friendId }),
       updateProfile: (changes) => request('profile:update', changes),
+      updatePrivacy: (changes) => request('privacy:update', changes),
+      getProfile: (userId) => request('profile:get', { userId }),
       sendTyping: (groupId) => socketRef.current?.emit('typing', { groupId }),
       joinCall: (groupId) => voiceRef.current.join(groupId),
       leaveCall: () => voiceRef.current?.leave(),

@@ -112,6 +112,86 @@ describe('status', () => {
   });
 });
 
+describe('privacy', () => {
+  let cy;
+  const befriend = (a, b) => {
+    store.addFriend(a.id, { friendId: b.id });
+    store.respondToRequest(b.id, a.id, true);
+  };
+
+  beforeEach(() => {
+    cy = store.upsertUser({ id: 'user-cy-00003', name: 'Cy' });
+  });
+
+  it('starts open for friend requests, with friends visible to friends of friends', () => {
+    expect(store.privacyOf(ada.id)).toEqual({ friendRequests: 'everyone', friendsVisibility: 'friends-of-friends', showOnline: true });
+  });
+
+  it('can refuse all friend requests', () => {
+    store.updatePrivacy(bo.id, { friendRequests: 'nobody' });
+    expect(() => store.addFriend(ada.id, { friendId: bo.id })).toThrow("Bo isn't accepting friend requests.");
+  });
+
+  it('can only take requests from friends of friends', () => {
+    store.updatePrivacy(bo.id, { friendRequests: 'friends-of-friends' });
+    expect(() => store.addFriend(ada.id, { friendId: bo.id })).toThrow('only accepts requests from friends of friends');
+    befriend(ada, cy);
+    befriend(bo, cy); // Bo asks Cy, since Bo's own setting only limits who can ask *him*
+    expect(store.addFriend(ada.id, { friendId: bo.id }).status).toBe('sent');
+  });
+
+  it('shows mutual friends only to the people the owner allows', () => {
+    befriend(ada, cy);
+    befriend(bo, cy);
+    // Ada and Bo share Cy, so they're friends of friends: Ada may see Bo's mutual friends by default.
+    expect(store.profileFor(ada.id, bo.id).mutualFriends.map((u) => u.name)).toEqual(['Cy']);
+
+    store.updatePrivacy(bo.id, { friendsVisibility: 'friends' });
+    expect(store.profileFor(ada.id, bo.id)).toMatchObject({ mutualFriends: null, friendCount: null });
+
+    store.updatePrivacy(bo.id, { friendsVisibility: 'nobody' });
+    befriend(ada, bo);
+    expect(store.profileFor(ada.id, bo.id).mutualFriends).toBeNull();
+    expect(store.profileFor(bo.id, bo.id).friendCount).toBe(2); // you always see your own
+  });
+
+  it('can hide when you are online', () => {
+    expect(store.showsOnline(ada.id)).toBe(true);
+    store.updatePrivacy(ada.id, { showOnline: false });
+    expect(store.showsOnline(ada.id)).toBe(false);
+  });
+
+  it('refuses unknown choices', () => {
+    expect(() => store.updatePrivacy(ada.id, { friendRequests: 'robots' })).toThrow('Unknown privacy choice.');
+  });
+});
+
+describe('profile cards', () => {
+  it('show the relation, shared groups, about me and banner', () => {
+    const group = store.createGroup(ada.id, 'Gym crew');
+    store.joinGroup(bo.id, group.code);
+    store.addFriend(ada.id, { friendId: bo.id });
+    store.updateProfile(bo.id, { bio: '  Lifts things  ', bannerColor: '#1C7ED6' });
+
+    const card = store.profileFor(ada.id, bo.id);
+    expect(card).toMatchObject({ relation: 'outgoing', bio: 'Lifts things', sharedGroups: [{ id: group.id, name: 'Gym crew' }] });
+    expect(card.user.bannerColor).toBe('#1c7ed6');
+    expect(store.profileFor(bo.id, ada.id).relation).toBe('incoming');
+    expect(store.profileFor(ada.id, ada.id).relation).toBe('self');
+  });
+
+  it('accept built-in pictures and banner photos, but check them', () => {
+    store.updateProfile(ada.id, { avatar: 'preset:fox' });
+    expect(store.users[ada.id].avatar).toBe('preset:fox');
+    expect(() => store.updateProfile(ada.id, { avatar: 'preset:unicorn' })).toThrow("can't be used");
+
+    store.updateProfile(ada.id, { bannerImage: `data:image/jpeg;base64,${'A'.repeat(100)}` });
+    expect(store.profileFor(bo.id, ada.id).bannerImage).toMatch(/^data:image\/jpeg/);
+    expect(() => store.updateProfile(ada.id, { bannerColor: 'red' })).toThrow('Unknown banner colour.');
+    expect(() => store.updateProfile(ada.id, { bio: 'x'.repeat(191) })).toThrow('at most 190');
+  });
+});
+
 describe('attachments', () => {
   let group;
   const base64 = (text) => Buffer.from(text).toString('base64');

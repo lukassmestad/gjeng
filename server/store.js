@@ -2,18 +2,24 @@ import { randomInt, randomUUID } from 'node:crypto';
 import {
   ATTACHMENT_MAX_BYTES,
   AVATAR_MAX_LENGTH,
+  BANNER_MAX_LENGTH,
+  BIO_MAX,
   COLORS,
   DISPLAY_NAME_MAX,
   INVITE_CODE_LENGTH,
   LIMITS,
+  PRIVACY_OPTIONS,
   REACTIONS,
   STATUS_VALUES,
   USERNAME_PATTERN,
   USERNAME_RULES,
 } from '../shared/constants.js';
+import { findPreset } from '../shared/avatars.js';
 
 // Only real pictures (the browser turns uploads into JPEG), never SVG or anything that could run code.
 const AVATAR_PATTERN = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const BANNER_PATTERN = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const IMAGE_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
 const FILE_PATTERN = /^data:([\w.+-]+\/[\w.+-]+)?(?:;[\w-]+=[\w.+-]+)*;base64,([A-Za-z0-9+/=]+)$/;
 const MINUTE = 60 * 1000;
@@ -32,14 +38,23 @@ function cleanText(value, max, label) {
 }
 
 // What the client gets to see of a user. `name` is the unique username, `displayName` what people see.
-export const publicUser = ({ id, name, displayName, color, avatar, status }) => ({
+// The banner picture is left out (it's big); it's sent only when someone opens your profile card.
+export const publicUser = ({ id, name, displayName, color, avatar, status, bannerColor, bio }) => ({
   id,
   name,
   color,
   ...(displayName && { displayName }),
   ...(avatar && { avatar }),
   ...(status && status !== 'online' && { status }),
+  ...(bannerColor && { bannerColor }),
+  ...(bio && { bio }),
 });
+
+const DEFAULT_PRIVACY = {
+  friendRequests: PRIVACY_OPTIONS.friendRequests[0],
+  friendsVisibility: PRIVACY_OPTIONS.friendsVisibility[0],
+  showOnline: true,
+};
 
 export const displayOf = (user) => user.displayName || user.name;
 
@@ -82,13 +97,14 @@ export class Store {
       id,
       name: this.#cleanUsername(name, id),
       color: COLORS.includes(color) ? color : COLORS[0],
+      joinedAt: Date.now(),
     };
     this.users[id] = user;
     return user;
   }
 
   // Display name, colour, picture and status. The username can't change, since friends add you by it.
-  updateProfile(userId, { displayName, color, avatar, status } = {}) {
+  updateProfile(userId, { displayName, color, avatar, status, bio, bannerColor, bannerImage } = {}) {
     const user = this.users[userId];
     if (status !== undefined) {
       if (!STATUS_VALUES.includes(status)) throw new StoreError('Unknown status.');
@@ -109,11 +125,103 @@ export class Store {
     }
     if (avatar !== undefined) {
       if (avatar === null) delete user.avatar;
+      else if (findPreset(avatar)) user.avatar = avatar;
       else if (typeof avatar !== 'string' || !AVATAR_PATTERN.test(avatar)) throw new StoreError("That picture can't be used.");
       else if (avatar.length > AVATAR_MAX_LENGTH) throw new StoreError('That picture is too big.');
       else user.avatar = avatar;
     }
+    if (bio !== undefined) {
+      const text = typeof bio === 'string' ? bio.trim() : '';
+      if (Array.from(text).length > BIO_MAX) throw new StoreError(`"About me" can be at most ${BIO_MAX} characters.`);
+      if (text) user.bio = text;
+      else delete user.bio;
+    }
+    if (bannerColor !== undefined) {
+      if (bannerColor === null) delete user.bannerColor;
+      else if (!HEX_COLOR.test(bannerColor)) throw new StoreError('Unknown banner colour.');
+      else user.bannerColor = bannerColor.toLowerCase();
+    }
+    if (bannerImage !== undefined) {
+      if (bannerImage === null) delete user.bannerImage;
+      else if (typeof bannerImage !== 'string' || !BANNER_PATTERN.test(bannerImage)) throw new StoreError("That banner can't be used.");
+      else if (bannerImage.length > BANNER_MAX_LENGTH) throw new StoreError('That banner is too big.');
+      else user.bannerImage = bannerImage;
+    }
     return user;
+  }
+
+  // --- Privacy --------------------------------------------------------------
+
+  privacyOf(userId) {
+    return { ...DEFAULT_PRIVACY, ...this.users[userId]?.privacy };
+  }
+
+  updatePrivacy(userId, { friendRequests, friendsVisibility, showOnline } = {}) {
+    const privacy = this.privacyOf(userId);
+    if (friendRequests !== undefined) {
+      if (!PRIVACY_OPTIONS.friendRequests.includes(friendRequests)) throw new StoreError('Unknown privacy choice.');
+      privacy.friendRequests = friendRequests;
+    }
+    if (friendsVisibility !== undefined) {
+      if (!PRIVACY_OPTIONS.friendsVisibility.includes(friendsVisibility)) throw new StoreError('Unknown privacy choice.');
+      privacy.friendsVisibility = friendsVisibility;
+    }
+    if (showOnline !== undefined) privacy.showOnline = Boolean(showOnline);
+    this.users[userId].privacy = privacy;
+    return privacy;
+  }
+
+  // Whether others should see this person as online (they can choose to always look offline).
+  showsOnline(userId) {
+    return this.privacyOf(userId).showOnline;
+  }
+
+  mutualFriends(a, b) {
+    const theirs = new Set(this.friends[b] ?? []);
+    return (this.friends[a] ?? []).filter((id) => theirs.has(id));
+  }
+
+  // Can `viewerId` see who `ownerId`'s friends are? Follows the owner's privacy choice.
+  canSeeFriends(viewerId, ownerId) {
+    if (viewerId === ownerId) return true;
+    switch (this.privacyOf(ownerId).friendsVisibility) {
+      case 'everyone':
+        return true;
+      case 'friends':
+        return this.areFriends(viewerId, ownerId);
+      case 'friends-of-friends':
+        return this.areFriends(viewerId, ownerId) || this.mutualFriends(viewerId, ownerId).length > 0;
+      default:
+        return false;
+    }
+  }
+
+  // What you see when you open someone's profile card.
+  profileFor(viewerId, userId) {
+    const user = this.users[userId];
+    if (!user) throw new StoreError('User not found.');
+    let relation = null;
+    if (viewerId === userId) relation = 'self';
+    else if (this.areFriends(viewerId, userId)) relation = 'friend';
+    else if (this.#incoming(viewerId).includes(userId)) relation = 'incoming';
+    else if (this.#incoming(userId).includes(viewerId)) relation = 'outgoing';
+
+    const sharedGroups = Object.values(this.groups)
+      .filter((g) => g.type !== 'dm' && g.memberIds.includes(viewerId) && g.memberIds.includes(userId))
+      .map((g) => ({ id: g.id, name: g.name }));
+    const canSee = this.canSeeFriends(viewerId, userId);
+    return {
+      user: publicUser(user),
+      bio: user.bio ?? '',
+      bannerImage: user.bannerImage ?? null,
+      joinedAt: user.joinedAt ?? null,
+      relation,
+      sharedGroups,
+      // null means "hidden by their privacy settings"
+      mutualFriends:
+        viewerId === userId || !canSee ? null : this.mutualFriends(viewerId, userId).map((id) => publicUser(this.users[id])),
+      friendCount: canSee ? (this.friends[userId] ?? []).length : null,
+    };
   }
 
   // The made-up people from "npm run demo", for the join screen.
@@ -265,6 +373,13 @@ export class Store {
       return { status: 'accepted', user: target };
     }
     if (this.#incoming(target.id).includes(fromId)) throw new StoreError(`You already sent ${displayOf(target)} a request.`);
+
+    // Their privacy settings decide who may ask.
+    const { friendRequests } = this.privacyOf(target.id);
+    if (friendRequests === 'nobody') throw new StoreError(`${displayOf(target)} isn't accepting friend requests.`);
+    if (friendRequests === 'friends-of-friends' && this.mutualFriends(fromId, target.id).length === 0) {
+      throw new StoreError(`${displayOf(target)} only accepts requests from friends of friends.`);
+    }
     this.requests[target.id] = [...this.#incoming(target.id), fromId];
     return { status: 'sent', user: target };
   }

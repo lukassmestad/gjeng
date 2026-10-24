@@ -126,7 +126,7 @@ try {
   await emma.getByRole('button', { name: 'Profile settings' }).click();
   await emma.getByLabel('Display name').fill('Emma 💪');
   await shot(emma, '13-profile');
-  await emma.getByRole('button', { name: 'Cancel' }).click();
+  await emma.getByRole('button', { name: 'Close settings' }).click();
 
   // A picture and a file in a DM, plus the emoji picker.
   const picture = await emma.evaluate(() => {
@@ -160,6 +160,54 @@ try {
   await emma.getByRole('link', { name: /training-plan\.pdf/ }).waitFor();
   await emma.getByRole('button', { name: 'Add an emoji' }).click();
   await shot(emma, '14-attachments');
+  await emma.keyboard.press('Escape');
+
+  // Profile card: Emma clicks Sara in the Gym crew member list (after leaving the call).
+  await open(emma, 'Gym crew');
+  await emma.getByRole('region', { name: 'Call' }).getByRole('button', { name: 'Leave call' }).click();
+  await emma.getByRole('complementary', { name: 'Members' }).getByRole('button', { name: 'Sara ✨', exact: true }).click();
+  await emma.getByRole('dialog', { name: 'Sara ✨' }).getByRole('region', { name: 'Mutual friends' }).waitFor();
+  await shot(emma, '15-profile-card');
+  await emma.getByRole('button', { name: 'Close profile' }).click();
+
+  // Settings, tab by tab.
+  await emma.getByRole('button', { name: 'Profile settings' }).click();
+  await shot(emma, '16-settings-profile');
+  const tab = (name) => emma.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name }).click();
+  await tab('Privacy');
+  await shot(emma, '17-settings-privacy');
+  await tab('Appearance');
+  await emma.getByRole('radio', { name: 'Midnight' }).click();
+  await shot(emma, '18-settings-appearance');
+  await tab('Accessibility');
+  await shot(emma, '19-settings-accessibility');
+  await tab('Appearance');
+  await emma.getByRole('radio', { name: 'Match my device' }).click();
+  await emma.getByRole('button', { name: 'Close settings' }).click();
+
+  // Search in Gym crew.
+  await emma.getByRole('button', { name: 'Search messages' }).click();
+  await emma.getByLabel('Search for words').fill('pizza');
+  await emma.getByRole('complementary', { name: 'Search messages' }).getByRole('status').waitFor();
+  await shot(emma, '20-search');
+  await emma.getByRole('button', { name: 'Close search' }).click();
+
+  // The GIF tab.
+  await emma.getByRole('button', { name: 'Add an emoji or GIF' }).click();
+  await emma.getByRole('tab', { name: 'GIFs' }).click();
+  await emma.locator('.gif-send img').nth(8).waitFor();
+  await shot(emma, '21-gifs');
+  await emma.keyboard.press('Escape');
+
+  // A different theme, and the sidebar dragged narrow.
+  await emma.getByRole('button', { name: 'Profile settings' }).click();
+  await tab('Appearance');
+  await emma.getByRole('radio', { name: 'Retro dark' }).click();
+  await emma.getByRole('button', { name: 'Close settings' }).click();
+  await emma.getByRole('separator', { name: 'Resize the chat list' }).focus();
+  for (let i = 0; i < 4; i++) await emma.keyboard.press('Shift+ArrowLeft');
+  await emma.mouse.move(700, 400);
+  await shot(emma, '22-retro-dark-narrow');
 
   console.log(`Screenshots saved to ${OUT}`);
 } finally {

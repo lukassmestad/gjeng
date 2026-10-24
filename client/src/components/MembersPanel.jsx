@@ -1,6 +1,7 @@
 import { plural, shownName } from '../lib.js';
 import { Avatar, GroupAvatar } from './Avatar.jsx';
 import { PlusIcon, XIcon } from './Icons.jsx';
+import ProfileLink from './ProfileLink.jsx';
 import SecretCode from './SecretCode.jsx';
 
 // The button next to someone depends on how you know them.
@@ -58,11 +59,13 @@ export default function MembersPanel({
     const isOnline = onlineIds.has(member.id);
     return (
       <li key={member.id} className={`member ${isOnline ? '' : 'offline'}`}>
-        <Avatar user={member} size={34} online={isOnline} />
-        <span className="member-name">
-          {shownName(member)}
-          {member.id === me.id && <span className="you"> (you)</span>}
-        </span>
+        <ProfileLink userId={member.id} className="member-link">
+          <Avatar user={member} size={34} online={isOnline} />
+          <span className="member-name">
+            {shownName(member)}
+            {member.id === me.id && <span className="you"> (you)</span>}
+          </span>
+        </ProfileLink>
         {member.id !== me.id && (
           <FriendAction
             member={member}

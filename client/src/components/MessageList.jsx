@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatBytes, formatDay, formatTime, REACTIONS, shownName } from '../lib.js';
+import { usePrefs } from '../prefs.jsx';
 import { Avatar } from './Avatar.jsx';
 import { DownloadIcon, FileIcon, PhoneIcon } from './Icons.jsx';
+import ProfileLink from './ProfileLink.jsx';
 
 // Messages from the same person within this time are shown as one block.
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -36,22 +38,31 @@ function Attachment({ attachment, onOpenImage, onLoad }) {
   );
 }
 
-function Message({ message, author, mine, continued, meId, nameOf, picking, onPick, onReact, onOpenImage, onMediaLoad }) {
+function Message({ message, author, mine, continued, flash, meId, nameOf, picking, onPick, onReact, onOpenImage, onMediaLoad }) {
   const reactions = Object.entries(message.reactions ?? {});
   const time = <time dateTime={new Date(message.ts).toISOString()}>{formatTime(message.ts)}</time>;
 
   return (
     <div
-      className={`message ${mine ? 'own' : ''} ${continued ? 'continued' : ''} ${picking ? 'picking' : ''}`}
+      className={`message ${mine ? 'own' : ''} ${continued ? 'continued' : ''} ${picking ? 'picking' : ''} ${flash ? 'flash' : ''}`}
+      data-message-id={message.id}
       onClick={(e) => !e.target.closest('button, a') && onPick()}
     >
       <div className="message-gutter">
-        {continued ? <span className="gutter-time">{time}</span> : <Avatar user={author} size={40} />}
+        {continued ? (
+          <span className="gutter-time">{time}</span>
+        ) : (
+          <ProfileLink userId={author.id} label={shownName(author)}>
+            <Avatar user={author} size={40} />
+          </ProfileLink>
+        )}
       </div>
       <div className="message-body">
         {!continued && (
           <div className="message-meta">
-            <span className="message-author">{shownName(author)}</span>
+            <ProfileLink userId={author.id} className="message-author">
+              {shownName(author)}
+            </ProfileLink>
             {time}
           </div>
         )}
@@ -102,11 +113,13 @@ function Lightbox({ image, onClose }) {
   );
 }
 
-export default function MessageList({ group, me, people, onReact, footer }) {
+export default function MessageList({ group, me, people, highlight, onReact, footer }) {
   const listRef = useRef(null);
   const stickToBottom = useRef(true);
   const [pickingId, setPickingId] = useState(null);
   const [openImage, setOpenImage] = useState(null);
+  const [flashId, setFlashId] = useState(null);
+  const { accessibility } = usePrefs();
   const { messages } = group;
   const last = messages.at(-1);
 
@@ -120,6 +133,18 @@ export default function MessageList({ group, me, people, onReact, footer }) {
   useLayoutEffect(() => {
     followBottom();
   });
+
+  // Jumping to a search result: scroll the message into view and light it up for a moment.
+  useEffect(() => {
+    if (!highlight) return;
+    const element = listRef.current.querySelector(`[data-message-id="${highlight.messageId}"]`);
+    if (!element) return;
+    stickToBottom.current = false;
+    element.scrollIntoView({ block: 'center' });
+    setFlashId(highlight.messageId);
+    const timer = setTimeout(() => setFlashId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [highlight]);
 
   function followBottom() {
     const list = listRef.current;
@@ -165,6 +190,7 @@ export default function MessageList({ group, me, people, onReact, footer }) {
           author={authorOf(message)}
           mine={message.userId === me.id}
           continued={continued}
+          flash={flashId === message.id}
           meId={me.id}
           nameOf={nameOf}
           picking={pickingId === message.id}
@@ -183,7 +209,14 @@ export default function MessageList({ group, me, people, onReact, footer }) {
 
   return (
     <>
-      <div className="message-list" ref={listRef} onScroll={onScroll} role="log" aria-label="Messages">
+      <div
+        className="message-list"
+        ref={listRef}
+        onScroll={onScroll}
+        role="log"
+        aria-label="Messages"
+        aria-live={accessibility.announceMessages ? 'polite' : 'off'}
+      >
         {items}
         {footer}
       </div>

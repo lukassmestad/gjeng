@@ -1,11 +1,27 @@
+import { findPreset, presetSvg } from '../../shared/avatars.js';
 import { COLORS } from '../../shared/constants.js';
+
+export { AVATAR_PRESETS, PRESET_PREFIX } from '../../shared/avatars.js';
+
+// A picture to show for an avatar: an uploaded photo as it is, or a built-in one drawn as SVG.
+const presetCache = new Map();
+export function avatarSrc(avatar) {
+  const preset = findPreset(avatar);
+  if (!preset) return avatar;
+  if (!presetCache.has(preset.id)) {
+    presetCache.set(preset.id, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(presetSvg(preset))}`);
+  }
+  return presetCache.get(preset.id);
+}
 
 export {
   ATTACHMENT_MAX_BYTES,
+  BIO_MAX,
   COLORS,
   DISPLAY_NAME_MAX,
   INVITE_CODE_LENGTH,
   LIMITS,
+  PRIVACY_OPTIONS,
   REACTIONS,
   USERNAME_PATTERN,
   USERNAME_RULES,
@@ -100,7 +116,8 @@ export function presenceOf(user, online) {
 export const presenceLabel = (presence) => STATUSES[presence]?.label ?? 'Offline';
 
 // Shrinks a picture in the browser so uploads stay small. Square pictures are cropped to the middle.
-export async function shrinkImage(file, { maxSize, square = false, quality = 0.85 }) {
+// `aspect` (width / height) crops to that shape, e.g. 3 for a wide banner.
+export async function shrinkImage(file, { maxSize, square = false, aspect = square ? 1 : null, quality = 0.85 }) {
   if (!file.type.startsWith('image/')) throw new Error("That file isn't a picture.");
   const url = URL.createObjectURL(file);
   try {
@@ -111,8 +128,13 @@ export async function shrinkImage(file, { maxSize, square = false, quality = 0.8
       img.src = url;
     });
     const { naturalWidth: w, naturalHeight: h } = image;
-    const side = Math.min(w, h);
-    const crop = square ? { x: (w - side) / 2, y: (h - side) / 2, w: side, h: side } : { x: 0, y: 0, w, h };
+    let crop = { x: 0, y: 0, w, h };
+    if (aspect) {
+      // Cut the middle out at the wanted shape.
+      const cw = Math.min(w, h * aspect);
+      const ch = cw / aspect;
+      crop = { x: (w - cw) / 2, y: (h - ch) / 2, w: cw, h: ch };
+    }
     const scale = Math.min(1, maxSize / Math.max(crop.w, crop.h));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(crop.w * scale);

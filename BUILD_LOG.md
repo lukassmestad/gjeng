@@ -196,11 +196,62 @@ Problems found in the screenshots and fixed:
 
 ![A group call](docs/call.png)
 
-## 11. What surprised me
+## 11. Settings, privacy, themes, accessibility, profile cards, search and GIFs
+
+My prompts (shortened):
+
+- *"When scaling the left tab down, 'Join with code' overlaps with the other tab. Maybe it should compact into just the icons."*
+- *"An improved settings tab with privacy settings like 'who can add me as a friend' and 'who can see my friends', an appearance page with colour wheels for the background, the orange details and the text (forcing contrast if the colours are too similar), some base themes like dark, light, retro, retro dark and cream, and an accessibility page. Accessibility mode could also be a toggle when registering."*
+- *"Make profile pictures clickable to open a small profile card with shared groups or shared friends, depending on privacy settings. Let people change their profile banner. Have some default profile pictures to choose from."*
+- *"Is it possible to include a GIF tab with the emojis, or do you need a licence or agreement with sites like GIPHY?"*
+- *"A way to search through all messages in a DM or group chat, filtered by user and type of message, and by keywords."*
+
+**About GIFs:** the AI explained that GIPHY and Tenor need an API key and acceptance of their terms (for example showing "Powered by GIPHY"), and that VibeOff's rules don't allow calling company APIs anyway. So instead it made **animated stickers that the app draws itself** and turns into real GIF files in the browser, with a small open-source encoder (gifenc, MIT licence). The GIF tab also has "Recent" (GIFs sent in your chats), favourites and search.
+
+What was built:
+
+- **Sidebar buttons** shrink to just their icons when the sidebar is dragged narrow. The sidebar measures its own width with a CSS container query.
+- **A settings window** with four tabs:
+  - **My profile:** upload a picture or pick one of 16 built-in ones, and set a display name, "About me", a name colour, and a banner colour or banner picture. A live preview of your profile card sits next to it.
+  - **Privacy:** who can send you friend requests, who can see your friends, and whether others see when you're online. **The server enforces these**, not just the app.
+  - **Appearance:** 9 themes, plus three **colour wheels** (background, details and text). The theme decides how light or dark each colour is, so a bright pick doesn't make the app unreadable. The text colour is checked against WCAG contrast rules and **adjusted until it's readable**, and the app says so when that happens.
+  - **Accessibility:** text size (90–150%), high contrast, less motion, status symbols (a moon for away, a line for do not disturb, a ring for offline), stronger focus outlines, easier-to-read text, always-visible message times, and screen-reader announcements on or off. **Accessibility mode** turns it all on at once, and it can also be ticked on the sign-up screen.
+- **Profile cards:** click any picture or name (in messages, the member list, the Friends page, calls or the DM header). They show the banner, status, about me, member since, shared groups and mutual friends. If that person hides their friends, the card says "Hidden by their privacy settings."
+- **Message search:** search one chat or all chats by words, person and type (text, pictures and GIFs, files, links). Matching words are highlighted, and clicking a result scrolls to the message and lights it up.
+
+How it was tested:
+
+- **54 unit tests** (8 new), including:
+  - every privacy option
+  - mutual friends being hidden for the right people
+  - profile cards
+  - built-in pictures (unknown ones refused)
+  - banners, and "About me" length limits
+- **26 browser tests** (8 new), including:
+  - privacy blocking a friend request and hiding someone's online status
+  - mutual friends disappearing from a card after a privacy change
+  - picking a text colour that's too dark, then checking in the browser that the contrast is still at least 4.5 : 1
+  - text size really changing the font size (15 px → 19.5 px at 130%)
+  - accessibility mode from sign-up
+  - search with every filter, and jumping to a result
+  - sending a GIF sticker (checking it really is a GIF file) and favouriting it
+  - the narrow sidebar
+
+Problems found and fixed:
+
+- **Privacy choices lagged** (found by a test): a choice only showed as selected once the server had answered. They now change straight away and roll back if saving fails.
+- **Message author names shrank** to the size of the timestamp after names became clickable (found in a screenshot). The new button style was overriding the name's style.
+- **The profile card had a big gap** under the picture, and the settings window's "Save changes" bar was partly cut off (both found in screenshots).
+- **Clearing a theme would have wiped the text size** as well, since both are stored in the same place. The AI caught this while writing the code, before it caused a bug.
+- Three test mistakes, such as a test that sent a message to the wrong chat after two people became friends and their DM opened.
+
+![The Midnight theme and colour wheels](docs/settings-appearance.png)
+
+## 12. What surprised me
 
 How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
 
-## 12. What I'd add next
+## 13. What I'd add next
 
 - Video and screen sharing in calls
 - Editing and deleting messages

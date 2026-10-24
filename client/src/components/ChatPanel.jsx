@@ -2,8 +2,9 @@ import { dmPartner, formatTypers, plural, presenceLabel, presenceOf, shownName }
 import { Avatar, GroupAvatar } from './Avatar.jsx';
 import CallStage from './CallStage.jsx';
 import Composer from './Composer.jsx';
-import { BackIcon, PhoneIcon, UsersIcon } from './Icons.jsx';
+import { BackIcon, PhoneIcon, SearchIcon, UsersIcon } from './Icons.jsx';
 import MessageList from './MessageList.jsx';
+import ProfileLink from './ProfileLink.jsx';
 import SecretCode from './SecretCode.jsx';
 
 export default function ChatPanel({
@@ -13,11 +14,15 @@ export default function ChatPanel({
   onlineIds,
   typingNames,
   membersOpen,
+  searchOpen,
+  highlight,
+  recentGifs,
   call,
   voice,
   socketId,
   onBack,
   onToggleMembers,
+  onToggleSearch,
   onCopyCode,
   onSend,
   onTyping,
@@ -61,12 +66,14 @@ export default function ChatPanel({
           <BackIcon />
         </button>
         {partner ? (
-          <Avatar user={partner} size={40} online={onlineIds.has(partner.id)} />
+          <ProfileLink userId={partner.id} label={title}>
+            <Avatar user={partner} size={40} online={onlineIds.has(partner.id)} />
+          </ProfileLink>
         ) : (
           <GroupAvatar group={group} size={40} />
         )}
         <div className="chat-title">
-          <h1>{title}</h1>
+          <h1>{partner ? <ProfileLink userId={partner.id}>{title}</ProfileLink> : title}</h1>
           <p>
             {partner
               ? presenceLabel(presenceOf(partner, onlineIds.has(partner.id)))
@@ -83,11 +90,20 @@ export default function ChatPanel({
         >
           <PhoneIcon />
         </button>
+        <button
+          className={`icon-button ${searchOpen ? 'pressed' : ''}`}
+          aria-label="Search messages"
+          title="Search messages"
+          aria-pressed={searchOpen}
+          onClick={onToggleSearch}
+        >
+          <SearchIcon />
+        </button>
         {!partner && (
           <button
-            className={`icon-button ${membersOpen ? 'pressed' : ''}`}
+            className={`icon-button ${membersOpen && !searchOpen ? 'pressed' : ''}`}
             aria-label="Members"
-            aria-pressed={membersOpen}
+            aria-pressed={membersOpen && !searchOpen}
             onClick={onToggleMembers}
           >
             <UsersIcon />
@@ -110,7 +126,7 @@ export default function ChatPanel({
         />
       )}
 
-      <MessageList group={group} me={me} people={people} onReact={onReact} footer={footer} />
+      <MessageList group={group} me={me} people={people} highlight={highlight} onReact={onReact} footer={footer} />
 
       <div className="typing" aria-live="polite">
         {typingNames.length > 0 && (
@@ -125,7 +141,14 @@ export default function ChatPanel({
         )}
       </div>
 
-      <Composer groupName={title} onSend={onSend} onTyping={onTyping} onError={onError} />
+      <Composer
+        groupName={title}
+        userId={me.id}
+        recentGifs={recentGifs}
+        onSend={onSend}
+        onTyping={onTyping}
+        onError={onError}
+      />
     </section>
   );
 }

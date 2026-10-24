@@ -90,12 +90,13 @@ export default function Sidebar({
         <span className="brand">Gjeng</span>
       </header>
 
+      {/* When the sidebar is dragged narrow, these shrink to just their icons. */}
       <div className="sidebar-actions">
-        <button className="button primary" onClick={onNew}>
-          <PlusIcon /> New group
+        <button className="button primary" onClick={onNew} aria-label="New group" title="New group">
+          <PlusIcon /> <span className="button-label">New group</span>
         </button>
-        <button className="button" onClick={onJoin}>
-          <LinkIcon /> Join with code
+        <button className="button" onClick={onJoin} aria-label="Join with code" title="Join with code">
+          <LinkIcon /> <span className="button-label">Join with code</span>
         </button>
       </div>
 

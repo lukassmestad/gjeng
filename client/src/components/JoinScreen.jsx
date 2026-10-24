@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { COLORS, LIMITS, makeId, shownName, USERNAME_PATTERN, USERNAME_RULES } from '../lib.js';
+import { usePrefs } from '../prefs.jsx';
 import { Avatar } from './Avatar.jsx';
 import Logo from './Logo.jsx';
 
@@ -35,6 +36,8 @@ export default function JoinScreen({ onJoin }) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(() => COLORS[Math.floor(Math.random() * COLORS.length)]);
   const [demoUsers, setDemoUsers] = useState([]);
+  const { appearance, turnOnAccessibilityMode, resetAll } = usePrefs();
+  const accessibilityOn = appearance.theme === 'high-contrast';
   const trimmed = name.trim();
   const check = useUsernameCheck(trimmed);
 
@@ -102,6 +105,18 @@ export default function JoinScreen({ onJoin }) {
             <Avatar user={{ name: trimmed || '?', color }} size={44} />
             <span>{trimmed || 'Your name'}</span>
           </div>
+
+          <label className="accessibility-check">
+            <input
+              type="checkbox"
+              checked={accessibilityOn}
+              onChange={(e) => (e.target.checked ? turnOnAccessibilityMode() : resetAll())}
+            />
+            <span>
+              <strong>Turn on accessibility mode</strong>
+              <span className="hint">Bigger text, high contrast, less motion. You can fine-tune it later in Settings.</span>
+            </span>
+          </label>
 
           <button className="button primary big" disabled={check.state !== 'ok'}>
             Start chatting

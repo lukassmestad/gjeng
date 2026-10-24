@@ -10,6 +10,7 @@ import {
   PhoneIcon,
   SpeakerIcon,
 } from './Icons.jsx';
+import ProfileLink from './ProfileLink.jsx';
 
 // The current time, updated every second while `active`.
 function useNow(active) {
@@ -31,7 +32,9 @@ function CallBubble({ user, isMe, speaking, muted, deafened }) {
       aria-label={states.length ? `${name} (${states.join(', ')})` : name}
     >
       <span className="call-avatar">
-        <Avatar user={user} size={84} />
+        <ProfileLink userId={user.id} label={name}>
+          <Avatar user={user} size={84} />
+        </ProfileLink>
         {speaking && (
           <span className="call-badge talking" title="Talking">
             <SpeakerIcon size={14} />
