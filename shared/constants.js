@@ -37,6 +37,9 @@ export const ATTACHMENT_MAX_BYTES = 1_000_000;
 // (You can still hide when you're online, in the privacy settings.)
 export const STATUS_VALUES = ['online', 'away', 'dnd'];
 
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 200;
+
 export const BIO_MAX = 190;
 export const BANNER_MAX_LENGTH = 300_000;
 

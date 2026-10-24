@@ -97,8 +97,21 @@ export function buildTheme({ dark, base, accent, text, contrast: contrastLevel }
   const onAccent = contrast('#ffffff', accentColor) >= contrast('#111111', accentColor) ? '#ffffff' : '#111111';
   accentColor = ensureContrast(accentColor, [onAccent], 4.5).color;
 
+  // The logo: a vivid version of the details colour. The bubble stays white unless that colour is
+  // so light the bubble would disappear; then it turns dark. The first dot sits inside the bubble,
+  // so it uses the logo colour only while that stands out from the bubble.
+  const logo = hslToHex([ah, as, 0.5]);
+  const bubble = contrast('#ffffff', logo) >= 2 ? '#ffffff' : '#1b1d22';
+  const dot = contrast(logo, bubble) >= 2 ? logo : bubble === '#ffffff' ? '#e8590c' : '#ffb37a';
+  const edge = contrast(logo, bg) < 1.3 ? mix(logo, textResult.color, 0.35) : 'none';
+
   return {
+    logo: { logo, bubble, dot, edge: edge === 'none' ? null : edge },
     vars: {
+      '--logo': logo,
+      '--logo-bubble': bubble,
+      '--logo-dot': dot,
+      '--logo-edge': edge,
       'color-scheme': dark ? 'dark' : 'light',
       '--bg': bg,
       '--surface': surface,

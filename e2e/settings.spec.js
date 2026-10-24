@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // Settings (profile, privacy, appearance, accessibility), profile cards, search, GIFs and the narrow sidebar.
 
+const PASSWORD = 'a long enough password';
 const unique = (base) => `${base}_${Math.random().toString(36).slice(2, 6)}`;
 
 async function newPerson(browser, base, { accessibility = false } = {}) {
@@ -11,7 +12,8 @@ async function newPerson(browser, base, { accessibility = false } = {}) {
   await page.getByLabel('Username').fill(name);
   await expect(page.getByText('✓ Available')).toBeVisible();
   if (accessibility) await page.getByLabel(/Turn on accessibility mode/).check();
-  await page.getByRole('button', { name: 'Start chatting' }).click();
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
   page.name = name;
   return page;
@@ -244,4 +246,27 @@ test('the sidebar buttons shrink to icons when the sidebar is narrow', async ({ 
   for (let i = 0; i < 4; i++) await ada.keyboard.press('Shift+ArrowLeft');
   await expect(label).toBeHidden();
   await expect(ada.locator('.sidebar').getByRole('button', { name: 'Join with code' })).toBeVisible();
+});
+
+test('the logo follows the details colour, and its bubble stays visible', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  const logoFill = () => ada.locator('.sidebar .logo rect').first().evaluate((el) => getComputedStyle(el).fill);
+  const bubbleFill = () => ada.locator('.sidebar .logo rect').nth(1).evaluate((el) => getComputedStyle(el).fill);
+  expect(await logoFill()).toBe('rgb(232, 89, 12)'); // the usual orange
+  expect(await bubbleFill()).toBe('rgb(255, 255, 255)');
+
+  await ada.getByRole('button', { name: 'Profile settings' }).click();
+  await ada.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Appearance' }).click();
+
+  // Strong yellow on the Details wheel (60° round, near the edge): too light for a white bubble.
+  const wheel = ada.getByRole('slider', { name: 'Details' });
+  const box = await wheel.boundingBox();
+  const r = (box.width / 2) * 0.95;
+  const angle = (60 * Math.PI) / 180;
+  await wheel.click({ position: { x: box.width / 2 + Math.sin(angle) * r, y: box.height / 2 - Math.cos(angle) * r } });
+
+  await expect.poll(logoFill).not.toBe('rgb(232, 89, 12)');
+  expect(await bubbleFill()).toBe('rgb(27, 29, 34)'); // the bubble turned dark
+  // The tab icon follows too.
+  await expect(ada.locator('link[rel="icon"]')).toHaveAttribute('href', /^data:image\/svg\+xml/);
 });

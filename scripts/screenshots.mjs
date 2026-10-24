@@ -67,6 +67,7 @@ try {
   await emmaPage.goto(URL);
   await emmaPage.getByLabel('Username').fill('Frederik');
   await emmaPage.getByText('✓ Available').waitFor();
+  await emmaPage.getByLabel('Password', { exact: true }).fill('my secret password');
   await shot(emmaPage, '1-join');
 
   const emma = await jumpInAs('Emma', emmaPage);
@@ -174,6 +175,8 @@ try {
   await emma.getByRole('button', { name: 'Profile settings' }).click();
   await shot(emma, '16-settings-profile');
   const tab = (name) => emma.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name }).click();
+  await tab('Account');
+  await shot(emma, '23-settings-account');
   await tab('Privacy');
   await shot(emma, '17-settings-privacy');
   await tab('Appearance');

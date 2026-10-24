@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { buildTheme } from './color.js';
+import { logoSvg } from './components/Logo.jsx';
 import { storage } from './lib.js';
 
 // Appearance and accessibility are saved on this device (like a browser setting), not on the server.
@@ -66,12 +67,16 @@ const THEME_VARS = Object.keys(buildTheme(THEMES.light).vars);
 export function applyAppearance(appearance) {
   const root = document.documentElement;
   // "Match my device" with no own colours uses the hand-tuned light and dark colours in styles.css.
-  const vars = appearance.theme === 'system' && !customised(appearance) ? {} : buildTheme(resolveTheme(appearance)).vars;
+  const built = appearance.theme === 'system' && !customised(appearance) ? null : buildTheme(resolveTheme(appearance));
+  const vars = built?.vars ?? {};
   for (const name of THEME_VARS) root.style.removeProperty(name);
   for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
   const theme = resolveTheme(appearance);
   root.dataset.font = theme.font ?? '';
   root.dataset.contrast = theme.contrast ?? '';
+  // The browser tab icon gets the same colours as the logo in the app.
+  const icon = document.querySelector('link[rel="icon"]');
+  if (icon) icon.href = built ? `data:image/svg+xml,${encodeURIComponent(logoSvg(built.logo))}` : '/favicon.svg';
   document.querySelector('meta[name="theme-color"]:not([media])')?.remove();
   if (vars['--bg']) {
     const meta = document.createElement('meta');

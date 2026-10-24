@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // Usernames are unique on the server, so every test gets its own, e.g. "Ada_k3f9".
+const PASSWORD = 'a long enough password';
 const unique = (base) => `${base}_${Math.random().toString(36).slice(2, 6)}`;
 
 // Each person gets their own browser context, like two different phones.
@@ -11,7 +12,8 @@ async function newPerson(browser, base) {
   await page.goto('/');
   await page.getByLabel('Username').fill(name);
   await expect(page.getByText('✓ Available')).toBeVisible();
-  await page.getByRole('button', { name: 'Start chatting' }).click();
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
   page.name = name;
   return page;
@@ -96,11 +98,11 @@ test('usernames are unique and must be typeable', async ({ browser }) => {
 
   await page.getByLabel('Username').fill(ada.name.toUpperCase());
   await expect(page.getByText(`"${ada.name.toUpperCase()}" is already taken.`)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start chatting' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled();
 
   await page.getByLabel('Username').fill('Ada Lovelace');
   await expect(page.getByText('without spaces')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start chatting' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled();
 });
 
 test('a wrong invite code shows an error', async ({ browser }) => {
@@ -244,4 +246,73 @@ test('the member list shows who is online and who is offline', async ({ browser 
   await ada.reload();
   await expect(ada.getByRole('heading', { level: 1, name: 'Running club' })).toBeVisible();
   await expect(members).toBeHidden();
+});
+
+test('accounts: log out, wrong password, log back in, and a second device', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  await createGroup(ada, 'Saved chats');
+
+  // Sign out from settings.
+  await ada.getByRole('button', { name: 'Profile settings' }).click();
+  await ada.getByRole('button', { name: 'Sign out' }).click();
+  await expect(ada.getByRole('tab', { name: 'Log in' })).toBeVisible();
+
+  // A wrong password gives the same message as an unknown name.
+  await ada.getByRole('tab', { name: 'Log in' }).click();
+  await ada.getByLabel('Username').fill(ada.name);
+  await ada.getByLabel('Password', { exact: true }).fill('not my password');
+  await ada.getByRole('button', { name: 'Log in' }).click();
+  await expect(ada.getByRole('alert')).toHaveText('Wrong username or password.');
+
+  // The right password (and the name in other letters) brings everything back.
+  await ada.getByLabel('Username').fill(ada.name.toLowerCase());
+  await ada.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await ada.getByRole('button', { name: 'Log in' }).click();
+  await expect(chats(ada).getByRole('button', { name: /Saved chats/ })).toBeVisible();
+
+  // Logging in on another device works at the same time.
+  const phone = await (await browser.newContext()).newPage();
+  await phone.goto('/');
+  await phone.getByRole('tab', { name: 'Log in' }).click();
+  await phone.getByLabel('Username').fill(ada.name);
+  await phone.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await phone.getByRole('button', { name: 'Log in' }).click();
+  await expect(chats(phone).getByRole('button', { name: /Saved chats/ })).toBeVisible();
+});
+
+test('passwords must be long enough, and changing one logs out other devices', async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto('/');
+  await page.getByLabel('Username').fill(unique('Ada'));
+  await page.getByLabel('Password', { exact: true }).fill('short');
+  await expect(page.getByText('At least 8 characters.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled();
+
+  const ada = await newPerson(browser, 'Ada');
+  const laptop = await (await browser.newContext()).newPage();
+  await laptop.goto('/');
+  await laptop.getByRole('tab', { name: 'Log in' }).click();
+  await laptop.getByLabel('Username').fill(ada.name);
+  await laptop.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await laptop.getByRole('button', { name: 'Log in' }).click();
+  await expect(laptop.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
+
+  await ada.getByRole('button', { name: 'Profile settings' }).click();
+  await ada.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Account' }).click();
+  await ada.getByLabel('Current password').fill('wrong one!');
+  await ada.getByLabel('New password').fill('a brand new password');
+  await ada.getByRole('button', { name: 'Change password' }).click();
+  await expect(ada.getByRole('alert')).toHaveText('Your current password is wrong.');
+
+  await ada.getByLabel('Current password').fill(PASSWORD);
+  await ada.getByRole('button', { name: 'Change password' }).click();
+  await expect(ada.getByText(/Password changed/)).toBeVisible();
+  await expect(laptop.getByText('You were logged out.')).toBeVisible();
+  await expect(laptop.getByRole('button', { name: 'Log in again' })).toBeVisible();
+});
+
+test('the demo shortcut is switched off on a normal server', async ({ request }) => {
+  const reply = await request.post('/api/demo-login', { data: { userId: 'demo-emma-0000' } });
+  expect(reply.status()).toBe(403);
+  expect(await (await request.get('/api/demo-users')).json()).toEqual([]);
 });

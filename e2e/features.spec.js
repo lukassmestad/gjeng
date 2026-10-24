@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // Calls, profiles, status, attachments, emoji and hidden invite codes.
 
+const PASSWORD = 'a long enough password';
 const unique = (base) => `${base}_${Math.random().toString(36).slice(2, 6)}`;
 // A tiny red PNG, for uploading pictures.
 const PNG = Buffer.from(
@@ -15,7 +16,8 @@ async function newPerson(browser, base) {
   await page.goto('/');
   await page.getByLabel('Username').fill(name);
   await expect(page.getByText('✓ Available')).toBeVisible();
-  await page.getByRole('button', { name: 'Start chatting' }).click();
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
   page.name = name;
   return page;

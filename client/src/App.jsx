@@ -1,27 +1,30 @@
 import { useState } from 'react';
 import ChatApp from './components/ChatApp.jsx';
 import JoinScreen from './components/JoinScreen.jsx';
-import { storage } from './lib.js';
+import { api, storage } from './lib.js';
 
-const USER_KEY = 'gjeng.user';
+// After logging in, the browser keeps a session key (not the password) and your user id.
+const SESSION_KEY = 'gjeng.session';
 
-function loadUser() {
-  const user = storage.get(USER_KEY, null);
-  return user && typeof user.id === 'string' && typeof user.name === 'string' ? user : null;
+function loadSession() {
+  const session = storage.get(SESSION_KEY, null);
+  return session && typeof session.token === 'string' && typeof session.id === 'string' ? session : null;
 }
 
 export default function App() {
-  const [user, setUser] = useState(loadUser);
+  const [session, setSession] = useState(loadSession);
 
-  function join(newUser) {
-    storage.set(USER_KEY, newUser);
-    setUser(newUser);
+  function signIn({ token, userId }) {
+    const next = { token, id: userId };
+    storage.set(SESSION_KEY, next);
+    setSession(next);
   }
 
   function signOut() {
-    storage.remove(USER_KEY);
-    setUser(null);
+    if (session) api('/api/logout', {}, session.token).catch(() => {}); // the key is forgotten here either way
+    storage.remove(SESSION_KEY);
+    setSession(null);
   }
 
-  return user ? <ChatApp user={user} onSignOut={signOut} /> : <JoinScreen onJoin={join} />;
+  return session ? <ChatApp user={session} onSignOut={signOut} /> : <JoinScreen onSignIn={signIn} />;
 }

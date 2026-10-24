@@ -247,14 +247,51 @@ Problems found and fixed:
 
 ![The Midnight theme and colour wheels](docs/settings-appearance.png)
 
-## 12. What surprised me
+## 12. Passwords, and a logo that follows your colours
+
+My prompts:
+
+- *"Should we have password registration for this task?"*
+- *"Ok, let's add the password when registering or logging in. Of course the demo users for the showcase should not require a log in screen."*
+- *"Changing the orange details with the colour wheel should also change the speech bubble logo (only the orange outer part, not the bubble). Keep contrast in mind so the bubble doesn't become invisible."*
+
+**Why passwords:** I asked whether we needed them, and the AI pointed out a real weakness. Your identity was just a random ID saved in the browser, and that ID was visible to other people in your groups. So someone technical could copy it and pretend to be you. Passwords fix that, as long as they're done properly.
+
+What was built:
+
+- **Create account / Log in** on the start screen. The password box has a show/hide eye.
+- **Passwords are never stored.** Only a scrypt hash with a random salt is kept. scrypt is built into Node and deliberately slow, so guessing is expensive.
+- **Logging in gives a random session key.** The server only trusts that key, never an ID sent by the browser, and only the key's SHA-256 hash is saved. Sessions last 30 days.
+- **Guessing is slowed down:** after 8 wrong tries for one name from one address, that name is blocked for 15 minutes. A wrong name and a wrong password give the same message, so it doesn't help guessing.
+- **Settings → Account:** change your password (you need the old one), which **logs out your other devices** immediately.
+- **Demo mode keeps "Jump in as Emma"** with no login screen, as I asked. On a normal server that shortcut is switched off, and a test checks it.
+- **The logo follows the details colour**, in your own colours and in themes like Midnight, and so does the browser tab icon. If the colour gets too light for a white speech bubble (yellow, for example), the bubble turns dark, so it never disappears.
+
+How it was tested:
+
+- **62 unit tests** (8 new), including:
+  - passwords are hashed, salted and never sent to others
+  - session keys are never saved in plain text
+  - other devices are logged out after a password change
+  - sessions expire
+  - the guessing limit
+- **30 browser tests** (4 new), including:
+  - logging out, a wrong password, logging back in, and logging in on a second device at the same time
+  - a too-short password being refused
+  - a password change logging out another open browser
+  - the demo shortcut being off on a normal server
+  - picking yellow on the details wheel, checking that the logo changed colour and the bubble turned dark
+
+Problem found and fixed: **a device that was logged out kept trying to reconnect forever** instead of showing "Log in again". The server said "you were logged out" and then closed the connection, and the app treated the closing as a network hiccup, which overwrote the message. The test for password changes caught it.
+
+## 13. What surprised me
 
 How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
 
-## 13. What I'd add next
+## 14. What I'd add next
 
 - Video and screen sharing in calls
 - Editing and deleting messages
-- Proper accounts so you can log in on a new device
+- Password reset by email
 - Push notifications
 - Hosting it online, with a relay server so calls work across different networks

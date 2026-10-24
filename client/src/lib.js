@@ -21,11 +21,29 @@ export {
   DISPLAY_NAME_MAX,
   INVITE_CODE_LENGTH,
   LIMITS,
+  PASSWORD_MIN,
   PRIVACY_OPTIONS,
   REACTIONS,
   USERNAME_PATTERN,
   USERNAME_RULES,
 } from '../../shared/constants.js';
+
+// Sends JSON to one of the server's /api routes and returns the answer, or throws its error message.
+export async function api(path, body, token) {
+  let res;
+  try {
+    res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error("Couldn't reach the server. Try again.");
+  }
+  const reply = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(reply.error ?? 'Something went wrong.');
+  return reply;
+}
 
 // crypto.randomUUID only exists on https/localhost, and phones on the same Wi-Fi use plain http.
 export function makeId() {

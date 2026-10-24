@@ -3131,6 +3131,50 @@ html[data-contrast='high'] .search-result {
   border: 1px solid var(--text);
 }
 
+/* ---------- Logging in ---------- */
+
+.join-tabs {
+  margin-bottom: 18px;
+}
+
+.password-field {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.password-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.password-field input,
+.password-field input:focus {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 13px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.password-field .secret-button {
+  margin-right: 6px;
+}
+
+.account-username {
+  font-size: calc(18px * var(--text-scale, 1));
+  font-weight: 800;
+}
+
+.account-password {
+  max-width: 420px;
+}
+
 /* ---------- Smaller screens ---------- */
 
 /* Members panel slides over the chat instead of taking a column. */

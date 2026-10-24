@@ -268,26 +268,22 @@ export default function ChatApp({ user, onSignOut }) {
     attempt(actions.joinCall(groupId));
   }
 
+  // You can always log back in with your password, so no "are you sure?" is needed.
   function signOut() {
-    if (
-      window.confirm(
-        'Sign out? There are no passwords, so your username stays taken and you will need invite codes to get back into your groups.',
-      )
-    ) {
-      actions.leaveCall();
-      onSignOut();
-    }
+    actions.leaveCall();
+    onSignOut();
   }
 
-  if (!me) {
+  // Logged out (here or on another device), or the session ran out: back to the log-in screen.
+  if (!me || status === 'refused') {
     return (
       <main className="splash">
         <Logo size={56} />
         {status === 'refused' ? (
           <>
-            <p>Couldn't sign in: {error}</p>
+            <p>{error}</p>
             <button className="button primary" onClick={onSignOut}>
-              Start over
+              Log in again
             </button>
           </>
         ) : (
@@ -499,6 +495,7 @@ export default function ChatApp({ user, onSignOut }) {
         {modal === 'settings' && (
           <SettingsModal
             me={me}
+            token={user.token}
             privacy={privacy}
             onSaveProfile={(changes) => actions.updateProfile(changes)}
             onUpdatePrivacy={(changes) => actions.updatePrivacy(changes)}

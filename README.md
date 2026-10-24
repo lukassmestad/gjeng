@@ -34,11 +34,11 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 
 ## What it does
 
-- **Join with a unique username.** The join screen checks live whether the name is free. There's no password, so nothing sensitive is stored.
+- **Accounts with passwords:** create an account with a unique username (checked live) and a password, then log in from any device. Passwords are stored only as a salted scrypt hash, logging in gives a random session key (only its hash is saved), repeated wrong guesses are slowed down, and changing your password logs out your other devices.
 - **Profiles:** upload a picture or pick a built-in one, and set a display name (spaces and emoji are fine), an "About me", a name colour and a banner (a colour or a picture). Your username stays the same, since friends add you by it.
 - **Profile cards:** click anyone's picture or name to see their card: banner, status, about me, when they joined, shared groups and mutual friends, with buttons to message or add them.
 - **Privacy:** choose who can send you friend requests (everyone, friends of friends, no one), who can see your friends (everyone, friends of friends, friends, no one), and whether others see when you're online. The server enforces it.
-- **Appearance:** themes (Light, Dark, Cream, Retro, Retro dark, Midnight, Forest, High contrast), plus **colour wheels** for the background, the details and the text. Text colours too close to the background are adjusted until they're readable.
+- **Appearance:** themes (Light, Dark, Cream, Retro, Retro dark, Midnight, Forest, High contrast), plus **colour wheels** for the background, the details and the text. Text colours too close to the background are adjusted until they're readable. The Gjeng logo (and the browser tab icon) follow the details colour, and the speech bubble turns dark if the colour gets too light for a white one.
 - **Accessibility:** text size, a high-contrast theme, less motion, status shown with symbols (not only colours), stronger focus outlines, easier-to-read text, always-visible message times, and screen-reader announcements. **Accessibility mode** turns it all on at once, and you can tick it when you sign up.
 - **Status:** Online, Away or Do not disturb, shown bottom-left and as a coloured dot for everyone else. Do not disturb hides incoming call pop-ups.
 - **Groups:** create a group, add your friends straight in or share an invite code. The code stays **hidden** (••••••) until you press Show, so people next to you can't read it off your screen.
@@ -67,7 +67,7 @@ npm start
 
 Then open <http://localhost:3000>.
 
-**To show it off:** `npm run demo` starts Gjeng with seven made-up people. They are already friends, with three groups, direct messages, profile pictures and a chat history. On the join screen, click **"Jump in as Emma"** (or anyone else). The demo resets every time it starts, and it's kept apart from your real data.
+**To show it off:** `npm run demo` starts Gjeng with seven made-up people. They are already friends, with three groups, direct messages, profile pictures and a chat history. On the start screen, click **"Jump in as Emma"** (or anyone else): no password needed. The demo resets every time it starts, and it's kept apart from your real data. That shortcut only exists in demo mode; on a normal server everyone logs in with a password.
 
 - **To be two people on one computer:** open a second window in private/incognito mode, or use <http://127.0.0.1:3000> in the same browser. Each one counts as a different person. For calls on one computer, use headphones, or you'll hear an echo.
 - **Calls on phones:** browsers only allow the microphone on `https` (or `localhost`). Run `npm run demo:https`, open the `https://192.168.x.x:3000` address it prints, and accept the warning about the homemade certificate once. Windows may ask you to let Node.js through the firewall.
@@ -76,9 +76,9 @@ Then open <http://localhost:3000>.
 ## Tests
 
 ```bash
-npm test                      # 54 unit tests: chat, friends, privacy, profiles, files, calls, demo data (Vitest)
+npm test                      # 62 unit tests: accounts, chat, friends, privacy, profiles, files, calls, demo data (Vitest)
 npx playwright install chromium   # first time only
-npm run test:e2e              # 26 browser tests with two or more people (Playwright)
+npm run test:e2e              # 30 browser tests with two or more people (Playwright)
 npm run screenshots           # starts a demo server and saves screenshots to captures/
 ```
 
@@ -109,7 +109,8 @@ The server checks everything: who is in a group, message and file sizes, that pr
 
 This is a prototype, not a finished product:
 
-- **No real login.** Your identity is a random ID saved in the browser. If you clear site data or sign out, you need invite codes to get back into your groups.
+- **No password reset by email.** There's no email address on accounts, so a forgotten password can't be recovered.
+- **Use https off your own computer.** On `localhost` passwords never leave your PC, but over plain `http` on Wi-Fi they travel unencrypted. `npm run demo:https` fixes that.
 - **GIFs are our own stickers** plus GIFs people send. Big GIF libraries like GIPHY or Tenor need an API key and their terms, and VibeOff's rules don't allow calling company APIs.
 - **Calls work on the same network.** Calling across the internet would need a relay server (STUN/TURN), and those are run by outside companies. In a call, everyone connects to everyone, which suits small groups.
 - **One server and one data file.** That's fine for a class demo, but it wouldn't hold up with lots of users. Files can be at most 1 MB.

@@ -23,6 +23,7 @@ const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const IMAGE_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
 const FILE_PATTERN = /^data:([\w.+-]+\/[\w.+-]+)?(?:;[\w-]+=[\w.+-]+)*;base64,([A-Za-z0-9+/=]+)$/;
 const MINUTE = 60 * 1000;
+const SESSION_LIFETIME_MS = 30 * 24 * 60 * MINUTE; // stay logged in for 30 days
 
 // No 0/O or 1/I, so codes are easy to read out loud.
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -82,14 +83,54 @@ export class Store {
     this.friends = data.friends ?? {}; // userId -> ids of their friends
     this.requests = data.requests ?? {}; // userId -> ids of people who asked to be their friend
     this.files = data.files ?? {}; // fileId -> { groupId, mime, name, data } for pictures and files in messages
+    this.sessions = data.sessions ?? {}; // sha256(session key) -> { userId, createdAt }
   }
 
   toJSON() {
-    return { users: this.users, groups: this.groups, friends: this.friends, requests: this.requests, files: this.files };
+    const { users, groups, friends, requests, files, sessions } = this;
+    return { users, groups, friends, requests, files, sessions };
   }
 
-  // Signs someone in. New people are created; people we already know keep the profile saved here,
-  // so an old copy in their browser can't undo a change they made.
+  // --- Accounts and sessions --------------------------------------------------
+
+  // A new account. The password hash is made by the caller (server/auth.js), since hashing is slow and async.
+  createUser({ name, color, passwordHash }) {
+    const user = this.upsertUser({ id: randomUUID(), name, color });
+    user.passwordHash = passwordHash;
+    return user;
+  }
+
+  setPasswordHash(userId, passwordHash) {
+    this.users[userId].passwordHash = passwordHash;
+  }
+
+  // `key` is the SHA-256 of the session key the browser holds; the key itself is never saved.
+  startSession(userId, key) {
+    this.sessions[key] = { userId, createdAt: Date.now() };
+  }
+
+  sessionUser(key) {
+    const session = this.sessions[key];
+    if (!session || !this.users[session.userId]) return null;
+    if (Date.now() - session.createdAt > SESSION_LIFETIME_MS) {
+      delete this.sessions[key];
+      return null;
+    }
+    return session.userId;
+  }
+
+  endSession(key) {
+    delete this.sessions[key];
+  }
+
+  // E.g. after changing your password: every other device has to log in again.
+  endOtherSessions(userId, keepKey) {
+    for (const [key, session] of Object.entries(this.sessions)) {
+      if (session.userId === userId && key !== keepKey) delete this.sessions[key];
+    }
+  }
+
+  // Used by the demo and the tests to make people with a fixed id. Real people sign up with createUser.
   upsertUser({ id, name, color } = {}) {
     if (typeof id !== 'string' || !/^[\w-]{8,64}$/.test(id)) throw new StoreError('Invalid user id.');
     if (this.users[id]) return this.users[id];

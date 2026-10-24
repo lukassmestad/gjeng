@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
+import { PASSWORD_MAX, PASSWORD_MIN } from '../shared/constants.js';
+import { hashPassword, LoginLimiter, newSessionToken, sessionKey, verifyPassword } from './auth.js';
 import { seedDemo } from './demo.js';
 import { displayOf, publicUser, Store, StoreError } from './store.js';
 
@@ -61,8 +63,114 @@ app.get('/api/username', (req, res) => {
 });
 
 app.get('/api/demo-users', (_req, res) => {
-  res.json(store.demoUsers());
+  res.json(DEMO ? store.demoUsers() : []);
 });
+
+// --- Accounts ---------------------------------------------------------------
+
+app.use('/api', express.json({ limit: '10kb' }));
+const limiter = new LoginLimiter();
+const bearer = (req) => (req.get('authorization') ?? '').replace(/^Bearer /, '');
+
+// Runs an async route, turning StoreErrors into a 400 with a readable message.
+const route = (handler) => (req, res) =>
+  handler(req, res).catch((err) => {
+    if (err instanceof StoreError) return res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  });
+
+function checkPassword(password) {
+  if (typeof password !== 'string' || password.length < PASSWORD_MIN) {
+    throw new StoreError(`Passwords need at least ${PASSWORD_MIN} characters.`);
+  }
+  if (password.length > PASSWORD_MAX) throw new StoreError(`Passwords can be at most ${PASSWORD_MAX} characters.`);
+}
+
+// Gives the browser a new session key. The server only keeps its hash.
+function signIn(res, user) {
+  const token = newSessionToken();
+  store.startSession(user.id, sessionKey(token));
+  save();
+  res.json({ token, userId: user.id });
+}
+
+// Throws out open connections, e.g. after logging out or changing the password.
+function endConnections(match) {
+  for (const socket of io.sockets.sockets.values()) {
+    if (!match(socket)) continue;
+    socket.emit('session:ended');
+    socket.disconnect(true);
+  }
+}
+
+app.post(
+  '/api/register',
+  route(async (req, res) => {
+    const { username, password, color } = req.body ?? {};
+    const check = store.checkUsername(username);
+    if (!check.available) throw new StoreError(check.error);
+    checkPassword(password);
+    const passwordHash = await hashPassword(password);
+    signIn(res, store.createUser({ name: username, color, passwordHash }));
+  }),
+);
+
+app.post(
+  '/api/login',
+  route(async (req, res) => {
+    const { username, password } = req.body ?? {};
+    if (limiter.blocked(req.ip, username)) {
+      return res.status(429).json({ error: 'Too many wrong tries. Wait a few minutes and try again.' });
+    }
+    const user = store.findByUsername(username);
+    const ok = user?.passwordHash ? await verifyPassword(password, user.passwordHash) : false;
+    if (!ok) {
+      limiter.fail(req.ip, username);
+      // The same message whether the name or the password was wrong, so it doesn't help guessing.
+      return res.status(401).json({ error: 'Wrong username or password.' });
+    }
+    limiter.succeed(req.ip, username);
+    signIn(res, user);
+  }),
+);
+
+// The made-up demo people have no passwords. This only works while the server runs in demo mode.
+app.post('/api/demo-login', (req, res) => {
+  const user = DEMO ? store.users[req.body?.userId] : null;
+  if (!user?.demo) return res.status(403).json({ error: 'Demo accounts only exist in demo mode.' });
+  signIn(res, user);
+});
+
+app.post('/api/logout', (req, res) => {
+  const key = sessionKey(bearer(req));
+  endConnections((socket) => socket.data.sessionKey === key);
+  store.endSession(key);
+  save();
+  res.json({ ok: true });
+});
+
+app.post(
+  '/api/password',
+  route(async (req, res) => {
+    const key = sessionKey(bearer(req));
+    const userId = store.sessionUser(key);
+    if (!userId) return res.status(401).json({ error: 'Please log in again.' });
+    const { currentPassword, newPassword } = req.body ?? {};
+    const user = store.users[userId];
+    // Demo people have no password yet, so they can set one without the old one.
+    if (user.passwordHash && !(await verifyPassword(currentPassword, user.passwordHash))) {
+      throw new StoreError('Your current password is wrong.');
+    }
+    checkPassword(newPassword);
+    store.setPasswordHash(userId, await hashPassword(newPassword));
+    // Every other device has to log in again with the new password.
+    store.endOtherSessions(userId, key);
+    endConnections((socket) => socket.data.userId === userId && socket.data.sessionKey !== key);
+    save();
+    res.json({ ok: true });
+  }),
+);
 
 // Pictures and files from messages. Anything that isn't a picture is always downloaded,
 // never opened in the browser, so a file can't pretend to be part of the app.
@@ -160,15 +268,14 @@ function dropFromCall(groupId, userId, exceptSocketId) {
   }
 }
 
-// Every connection says who it is. There are no passwords: this is a prototype.
+// Every connection must bring a valid session key from logging in. The server decides who you are.
 io.use((socket, next) => {
-  try {
-    socket.data.userId = store.upsertUser(socket.handshake.auth?.user).id;
-    save();
-    next();
-  } catch (err) {
-    next(new Error(err instanceof StoreError ? err.message : 'Could not sign in.'));
-  }
+  const key = sessionKey(socket.handshake.auth?.token ?? '');
+  const userId = store.sessionUser(key);
+  if (!userId) return next(new Error('Please log in again.'));
+  socket.data.userId = userId;
+  socket.data.sessionKey = key;
+  next();
 });
 
 io.on('connection', (socket) => {

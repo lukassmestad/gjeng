@@ -153,7 +153,7 @@ export function useChat(user) {
   }, []);
 
   useEffect(() => {
-    const socket = io({ auth: { user } });
+    const socket = io({ auth: { token: user.token } });
     socketRef.current = socket;
     const voice = new CallClient(socket, request, (snapshot) => dispatch({ type: 'voice', voice: snapshot }));
     voiceRef.current = voice;
@@ -171,7 +171,12 @@ export function useChat(user) {
       if (socket.active) dispatch({ type: 'status', status: 'offline' });
       else dispatch({ type: 'status', status: 'refused', error: err.message });
     });
-    socket.on('disconnect', () => dispatch({ type: 'status', status: 'offline' }));
+    // When the server itself closes the connection (you were logged out), don't pretend it's a network blip.
+    socket.on('disconnect', (reason) => {
+      if (reason !== 'io server disconnect') dispatch({ type: 'status', status: 'offline' });
+    });
+    // Logged out from somewhere else, or the password was changed on another device.
+    socket.on('session:ended', () => dispatch({ type: 'status', status: 'refused', error: 'You were logged out.' }));
     socket.on('init', (data) => dispatch({ type: 'init', ...data, socketId: socket.id }));
     socket.on('presence', (online) => dispatch({ type: 'presence', online }));
     socket.on('friends', (friends) => dispatch({ type: 'friends', friends }));
