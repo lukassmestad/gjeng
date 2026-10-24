@@ -178,6 +178,22 @@ test('accessibility: text size, accessibility mode, and the option on sign-up', 
   await expect(html).toHaveClass(/status-symbols/);
   await expect(html).toHaveClass(/strong-focus/);
   await expect(html).toHaveAttribute('data-contrast', 'high');
+  await expect(html).toHaveClass(/simple-look/);
+
+  // Dark text on a light background (easier for most people), with the strictest contrast level (7:1).
+  const colours = await ada.evaluate(() => {
+    const style = getComputedStyle(document.documentElement);
+    const lum = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.trim().slice(i, i + 2), 16) / 255);
+      const f = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const bg = lum(style.getPropertyValue('--bg'));
+    const text = lum(style.getPropertyValue('--text'));
+    return { bg, ratio: (Math.max(bg, text) + 0.05) / (Math.min(bg, text) + 0.05) };
+  });
+  expect(colours.bg).toBeGreaterThan(0.8);
+  expect(colours.ratio).toBeGreaterThanOrEqual(7);
 
   // The same thing straight from sign-up.
   const bo = await newPerson(browser, 'Bo', { accessibility: true });

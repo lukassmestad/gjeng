@@ -212,6 +212,15 @@ try {
   await emma.mouse.move(700, 400);
   await shot(emma, '22-retro-dark-narrow');
 
+  // Accessibility mode, on a fresh start screen and in a chat.
+  const a11y = await newPage();
+  await a11y.goto(URL);
+  await a11y.getByLabel(/Turn on accessibility mode/).check();
+  await shot(a11y, '24-accessibility-join');
+  await jumpInAs('Ola', a11y);
+  await open(a11y, 'Gym crew');
+  await shot(a11y, '25-accessibility-chat');
+
   console.log(`Screenshots saved to ${OUT}`);
 } finally {
   await browser.close();

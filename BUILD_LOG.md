@@ -284,11 +284,38 @@ How it was tested:
 
 Problem found and fixed: **a device that was logged out kept trying to reconnect forever** instead of showing "Log in again". The server said "you were logged out" and then closed the connection, and the app treated the closing as a network hiccup, which overwrote the message. The test for password changes caught it.
 
-## 13. What surprised me
+## 13. Making accessibility mode actually easier to read
+
+My prompts:
+
+- *"Is white text on black background better for accessibility than the other way around?"*
+- *"I just mean the accessibility mode when registering. Should it not use a less complex design and background? I feel the white text on black background may be harder for an accessibility theme."*
+- *"Do what's right with what studies show. The importance is that it's accessible."*
+
+What the AI explained:
+
+- **Contrast is the same both ways.** Black on white and white on black both have the maximum contrast ratio (21:1).
+- **Most people read dark text on a light background a little better**, especially longer text.
+- **White text on black can look blurry or "glowing"** for people with astigmatism, which is roughly a third of people to some degree.
+- **Light text on dark helps people who are sensitive to bright light.**
+- **Dyslexia guidance** (for example from the British Dyslexia Association) recommends avoiding *pure* white with *pure* black because of the glare.
+
+So I was right that the first version (white on black) wasn't the best default. What changed:
+
+- **Accessibility mode now uses "High contrast" with near-black text on a warm off-white.** The contrast is still about 18:1, far above the strictest WCAG level (7:1), without the glare of pure white. The buttons use a deeper orange.
+- **The white-on-black version is still there as "High contrast dark"**, described as being for people bothered by bright screens.
+- **New "Simpler look" setting** (part of accessibility mode): flat colours instead of gradients, clear outlines instead of soft shadows, and a plain start screen.
+- A browser test now checks that accessibility mode gives a light background, text contrast of **at least 7:1**, and the simpler look.
+
+Found in the screenshots: with the bigger text, **"Join with code" stuck out past the sidebar**. The two buttons now wrap onto two rows when they don't fit side by side.
+
+![Accessibility mode](docs/accessibility-mode.png)
+
+## 14. What surprised me
 
 How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
 
-## 14. What I'd add next
+## 15. What I'd add next
 
 - Video and screen sharing in calls
 - Editing and deleting messages

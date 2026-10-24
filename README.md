@@ -24,9 +24,13 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 | --- | --- |
 | <img src="docs/settings-appearance.png" alt="The Midnight theme and the colour wheels"> | <img src="docs/settings-accessibility.png" alt="Accessibility settings"> |
 
-| Searching messages | Retro dark theme, narrow sidebar |
+| Accessibility mode | Searching messages |
 | --- | --- |
-| <img src="docs/search.png" alt="Searching a chat for pizza"> | <img src="docs/retro-dark.png" alt="The Retro dark theme with the sidebar dragged narrow"> |
+| <img src="docs/accessibility-mode.png" alt="Accessibility mode: dark text on off-white, bigger text and clear outlines"> | <img src="docs/search.png" alt="Searching a chat for pizza"> |
+
+| Retro dark theme, narrow sidebar | Logging in |
+| --- | --- |
+| <img src="docs/retro-dark.png" alt="The Retro dark theme with the sidebar dragged narrow"> | <img src="docs/join.png" alt="Creating an account with a username and password"> |
 
 | Phone | Dark mode |
 | --- | --- |
@@ -38,8 +42,8 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 - **Profiles:** upload a picture or pick a built-in one, and set a display name (spaces and emoji are fine), an "About me", a name colour and a banner (a colour or a picture). Your username stays the same, since friends add you by it.
 - **Profile cards:** click anyone's picture or name to see their card: banner, status, about me, when they joined, shared groups and mutual friends, with buttons to message or add them.
 - **Privacy:** choose who can send you friend requests (everyone, friends of friends, no one), who can see your friends (everyone, friends of friends, friends, no one), and whether others see when you're online. The server enforces it.
-- **Appearance:** themes (Light, Dark, Cream, Retro, Retro dark, Midnight, Forest, High contrast), plus **colour wheels** for the background, the details and the text. Text colours too close to the background are adjusted until they're readable. The Gjeng logo (and the browser tab icon) follow the details colour, and the speech bubble turns dark if the colour gets too light for a white one.
-- **Accessibility:** text size, a high-contrast theme, less motion, status shown with symbols (not only colours), stronger focus outlines, easier-to-read text, always-visible message times, and screen-reader announcements. **Accessibility mode** turns it all on at once, and you can tick it when you sign up.
+- **Appearance:** themes (Light, Dark, Cream, Retro, Retro dark, Midnight, Forest, High contrast, High contrast dark), plus **colour wheels** for the background, the details and the text. Text colours too close to the background are adjusted until they're readable. The Gjeng logo (and the browser tab icon) follow the details colour, and the speech bubble turns dark if the colour gets too light for a white one.
+- **Accessibility:** text size, high-contrast themes (near-black on off-white by default, or white on black), a simpler look without gradients and shadows, less motion, status shown with symbols (not only colours), stronger focus outlines, easier-to-read text, always-visible message times, and screen-reader announcements. **Accessibility mode** turns it all on at once, and you can tick it when you sign up.
 - **Status:** Online, Away or Do not disturb, shown bottom-left and as a coloured dot for everyone else. Do not disturb hides incoming call pop-ups.
 - **Groups:** create a group, add your friends straight in or share an invite code. The code stays **hidden** (••••••) until you press Show, so people next to you can't read it off your screen.
 - **Live chat:** messages show up instantly. It also shows "Jonas is typing…" and who is online. Your own messages have a thin coloured bar on the left.

@@ -76,8 +76,8 @@ export default function JoinScreen({ onSignIn }) {
   const [demoUsers, setDemoUsers] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const { appearance, turnOnAccessibilityMode, resetAll } = usePrefs();
-  const accessibilityOn = appearance.theme === 'high-contrast';
+  const { accessibility, turnOnAccessibilityMode, resetAll } = usePrefs();
+  const accessibilityOn = accessibility.mode;
   const trimmed = name.trim();
   const creating = mode === 'create';
   const check = useUsernameCheck(creating ? trimmed : '');
@@ -210,7 +210,7 @@ export default function JoinScreen({ onSignIn }) {
             />
             <span>
               <strong>Turn on accessibility mode</strong>
-              <span className="hint">Bigger text, high contrast, less motion. You can fine-tune it later in Settings.</span>
+              <span className="hint">Bigger text, high contrast, a simpler look and less motion. You can fine-tune it later in Settings.</span>
             </span>
           </label>
 

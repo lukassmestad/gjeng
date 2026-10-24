@@ -78,7 +78,10 @@ export function buildTheme({ dark, base, accent, text, contrast: contrastLevel }
   const shade = (l, sat = s) => hslToHex([h, sat, l]);
 
   const levels = high
-    ? { bg: 0, sidebar: 0.03, surface: 0.06, surface2: 0.12, border: 0.85 }
+    ? dark
+      ? { bg: 0, sidebar: 0.03, surface: 0.06, surface2: 0.12, border: 0.85 }
+      : // Off-white rather than pure white: still about 18:1 with the text, but less glare (helps e.g. dyslexia).
+        { bg: 0.975, sidebar: 0.955, surface: 0.99, surface2: 0.915, border: 0.2 }
     : dark
       ? { bg: 0.075, sidebar: 0.09, surface: 0.115, surface2: 0.155, border: 0.21 }
       : { bg: 0.955, sidebar: 0.975, surface: 0.995, surface2: 0.92, border: 0.86 };

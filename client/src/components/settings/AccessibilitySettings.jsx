@@ -21,15 +21,22 @@ export default function AccessibilitySettings() {
         <div>
           <strong>Accessibility mode</strong>
           <span className="hint">
-            Turns on everything below at once: bigger text, the high-contrast theme, less motion, status symbols, clear
-            focus outlines and easier-to-read text.
+            Turns on everything below at once: bigger text, dark text on a light background, a simpler look, less motion, status
+            symbols, clear focus outlines and easier-to-read text.
           </span>
         </div>
         <div className="accessibility-mode-buttons">
           <button type="button" className="button primary" onClick={turnOnAccessibilityMode}>
             Turn on
           </button>
-          <button type="button" className="button quiet" onClick={() => setAccessibility(DEFAULT_ACCESSIBILITY)}>
+          <button
+            type="button"
+            className="button quiet"
+            onClick={() => {
+              setAccessibility(DEFAULT_ACCESSIBILITY);
+              if (appearance.theme.startsWith('high-contrast')) setAppearance({ theme: 'system' });
+            }}
+          >
             Reset
           </button>
         </div>
@@ -63,9 +70,21 @@ export default function AccessibilitySettings() {
         <legend>Contrast</legend>
         <Switch
           title="High-contrast theme"
-          description="Black background, white text and bright yellow details, with strong borders."
+          description="Near-black text on a soft off-white background, with strong borders. Easiest to read for most people."
+          checked={appearance.theme === 'high-contrast-light'}
+          onChange={(on) => setAppearance({ theme: on ? 'high-contrast-light' : 'system' })}
+        />
+        <Switch
+          title="High contrast, dark"
+          description="White text on black instead. Can help if bright screens bother you, but may look blurry with astigmatism."
           checked={appearance.theme === 'high-contrast'}
           onChange={(on) => setAppearance({ theme: on ? 'high-contrast' : 'system' })}
+        />
+        <Switch
+          title="Simpler look"
+          description="Plain, flat colours instead of gradients, and clear outlines instead of soft shadows."
+          checked={a.simpleLook}
+          onChange={(simpleLook) => setAccessibility({ simpleLook })}
         />
         <Switch
           title="Show status with symbols"

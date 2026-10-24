@@ -16,13 +16,19 @@ export const THEMES = {
   'retro-dark': { label: 'Retro dark', dark: true, base: '#0b1a12', accent: '#3ddc84', text: '#b6f5c8', font: 'retro' },
   midnight: { label: 'Midnight', dark: true, base: '#101a33', accent: '#60a5fa' },
   forest: { label: 'Forest', dark: true, base: '#10251b', accent: '#86d993' },
-  'high-contrast': { label: 'High contrast', dark: true, base: '#000000', accent: '#ffd400', text: '#ffffff', contrast: 'high' },
+  // Dark text on a light background reads best for most people (white on black can blur, e.g. with
+  // astigmatism), so accessibility mode uses this one: near-black on a warm off-white, which keeps the
+  // contrast very high without the glare of pure white. The dark one is for light-sensitive eyes.
+  'high-contrast-light': { label: 'High contrast', dark: false, base: '#f7f3ea', accent: '#a33a00', text: '#111111', contrast: 'high' },
+  'high-contrast': { label: 'High contrast dark', dark: true, base: '#000000', accent: '#ffd400', text: '#ffffff', contrast: 'high' },
 };
 
 export const DEFAULT_APPEARANCE = { theme: 'system', base: null, accent: null, text: null };
 
 export const DEFAULT_ACCESSIBILITY = {
   textScale: 1,
+  simpleLook: false,
+  mode: false, // true while "accessibility mode" is on
   reduceMotion: 'system', // 'system' | 'on' | 'off'
   statusSymbols: false,
   strongFocus: false,
@@ -31,18 +37,21 @@ export const DEFAULT_ACCESSIBILITY = {
   announceMessages: true,
 };
 
-// "Accessibility mode": bigger text, high contrast, calm motion and clearer signals, all at once.
+// "Accessibility mode": bigger text, high contrast (black on white), a simpler look,
+// calm motion and clearer signals, all at once.
 export const ACCESSIBILITY_MODE = {
   accessibility: {
     ...DEFAULT_ACCESSIBILITY,
+    mode: true,
     textScale: 1.15,
+    simpleLook: true,
     reduceMotion: 'on',
     statusSymbols: true,
     strongFocus: true,
     readableText: true,
     alwaysShowTimes: true,
   },
-  appearance: { ...DEFAULT_APPEARANCE, theme: 'high-contrast' },
+  appearance: { ...DEFAULT_APPEARANCE, theme: 'high-contrast-light' },
 };
 
 const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -93,6 +102,7 @@ export function applyAccessibility(a) {
   root.classList.toggle('reduce-motion', reduce);
   root.classList.toggle('status-symbols', a.statusSymbols);
   root.classList.toggle('strong-focus', a.strongFocus);
+  root.classList.toggle('simple-look', a.simpleLook);
   root.classList.toggle('readable-text', a.readableText);
   root.classList.toggle('always-times', a.alwaysShowTimes);
 }
