@@ -86,7 +86,12 @@ io.on('connection', (socket) => {
   for (const group of groups) socket.join(groupRoom(group.id));
 
   onlineCount.set(userId, (onlineCount.get(userId) ?? 0) + 1);
-  socket.emit('init', { me: store.users[userId], groups: groups.map((g) => store.view(g)), online: onlineIds() });
+  socket.emit('init', {
+    me: store.users[userId],
+    groups: groups.map((g) => store.view(g)),
+    friends: store.friendsView(userId),
+    online: onlineIds(),
+  });
   io.emit('presence', onlineIds());
 
   // Wraps a handler so it always answers the client with { ok, ... } or { ok: false, error }.
@@ -104,10 +109,15 @@ io.on('connection', (socket) => {
     });
   }
 
-  // Puts all of this user's tabs in the group and sends them the full group.
-  function addUserToGroup(group) {
-    io.in(userRoom(userId)).socketsJoin(groupRoom(group.id));
-    io.to(userRoom(userId)).emit('group:upsert', store.view(group));
+  // Puts all of a user's tabs in the group and sends them the full group.
+  function addUserToGroup(group, id = userId) {
+    io.in(userRoom(id)).socketsJoin(groupRoom(group.id));
+    io.to(userRoom(id)).emit('group:upsert', store.view(group));
+  }
+
+  // Sends each person their up-to-date friends, requests and sent requests.
+  function sendFriends(...ids) {
+    for (const id of ids) io.to(userRoom(id)).emit('friends', store.friendsView(id));
   }
 
   handle('group:create', ({ name }) => {
@@ -148,6 +158,36 @@ io.on('connection', (socket) => {
     const message = store.toggleReaction(userId, groupId, messageId, emoji);
     io.to(groupRoom(groupId)).emit('message:update', { groupId, message });
     return {};
+  });
+
+  handle('friend:add', ({ code, friendId }) => {
+    const { status, user } = store.addFriend(userId, code !== undefined ? { code } : { friendId });
+    sendFriends(userId, user.id);
+    return { status, name: user.name };
+  });
+
+  handle('friend:respond', ({ fromId, accept }) => {
+    store.respondToRequest(userId, fromId, Boolean(accept));
+    sendFriends(userId, fromId);
+    return {};
+  });
+
+  handle('friend:cancel', ({ friendId }) => {
+    store.cancelRequest(userId, friendId);
+    sendFriends(userId, friendId);
+    return {};
+  });
+
+  handle('friend:remove', ({ friendId }) => {
+    store.removeFriend(userId, friendId);
+    sendFriends(userId, friendId);
+    return {};
+  });
+
+  handle('dm:open', ({ friendId }) => {
+    const { group, isNew } = store.openDm(userId, friendId);
+    for (const id of isNew ? group.memberIds : [userId]) addUserToGroup(group, id);
+    return { groupId: group.id };
   });
 
   // Typing isn't saved, it's just passed on to the others in the group.

@@ -34,6 +34,7 @@ Technology: React front end, Node.js server with Socket.IO for real-time updates
 - *"I think just a basic chat and group application could be better."*
 - *"I like the name Gjeng then! Lets get started."*
 - After trying the first version: *"I think the messages should not be shown left to right, as that fits a phone view more. It should instead be all to the left of the page and show the profile picture and name with their message under. So it should show your name instead of something like 'You' or a different colour."*
+- *"Would it be possible to add voice chat into this webapp or is that not possible with a weak server connection? We should also be able to add friends for more direct messages."*
 
 From there the AI planned the structure, wrote the server, the chat logic, the React app and the styles, and wrote tests for all of it.
 
@@ -78,13 +79,30 @@ The first version showed messages like a phone chat: other people's messages on 
 
 A new browser test checks that your own messages show your name.
 
-| Before | After |
-| --- | --- |
-| Bubbles, your messages on the right in orange | Everyone on the left with picture and name |
+## 7. Friends and direct messages
 
-## 7. What I'd add next
+Added after I asked for a way to message people one-on-one:
+
+- Everyone gets a **friend code**. You can add someone by code, or with "Add friend" next to them in a group's member list.
+- The other person sees a badge and a notice, and can **accept or decline**. If two people ask each other, they become friends straight away.
+- Friends get a **Message** button that opens a private chat. Direct messages reuse everything groups already had: live messages, typing, reactions and unread badges.
+- The sidebar is now split into **Friends**, **Direct messages** and **Groups**.
+- Rules the server checks: you can only message friends, you can't add yourself, friend codes aren't shown to other people, and direct messages can't be joined by code.
+
+Tests: 11 new unit tests (28 in total) and 2 new browser tests (7 in total). One adds a friend by code, accepts and sends a direct message. The other adds a friend from a group's member list. Both passed the first time.
+
+While checking the screenshots, the AI noticed a notice that seemed to never go away. Before changing anything, it measured how long the notice was visible: it disappeared after 2.5 seconds as intended, and the screenshots had just been taken quickly. So the screenshot script was fixed, not the app.
+
+I also asked whether **voice chat** would work with a weak server. The AI explained that voice would go directly between the browsers (WebRTC), with the server only connecting people, so the server's connection isn't the problem. The catch is that browsers only allow the microphone on `https` or `localhost`.
+
+## 8. What surprised me
+
+How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
+
+## 9. What I'd add next
 
 - Sending images
+- Voice chat
 - Proper accounts so you can log in on a new device
 - Push notifications
 - Hosting it online so people don't need to be on the same network

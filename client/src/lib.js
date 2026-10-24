@@ -71,6 +71,11 @@ export function groupColor(id) {
   return COLORS[hash % COLORS.length];
 }
 
+// The other person in a direct message.
+export function dmPartner(group, meId) {
+  return group.members.find((m) => m.id !== meId) ?? group.members[0];
+}
+
 export function plural(count, word) {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }

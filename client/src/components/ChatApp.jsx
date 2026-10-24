@@ -2,17 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { copyText, storage } from '../lib.js';
 import { useChat } from '../useChat.js';
 import ChatPanel from './ChatPanel.jsx';
+import FriendsPanel from './FriendsPanel.jsx';
 import { CreateGroupModal, JoinGroupModal } from './GroupModals.jsx';
 import { LinkIcon, PlusIcon } from './Icons.jsx';
 import Logo from './Logo.jsx';
 import MembersPanel from './MembersPanel.jsx';
 import Sidebar from './Sidebar.jsx';
 
+const FRIENDS = 'friends'; // activeId when the Friends page is open instead of a chat
 const isWide = () => window.matchMedia('(min-width: 721px)').matches;
 const lastActivity = (group) => group.messages.at(-1)?.ts ?? 0;
 
 export default function ChatApp({ user, onSignOut }) {
-  const { status, error, me, groups, online, typing, actions } = useChat(user);
+  const { status, error, me, groups, friends, friendNotice, online, typing, actions } = useChat(user);
   const readKey = `gjeng.read.${user.id}`;
 
   const [activeId, setActiveId] = useState(null);
@@ -22,14 +24,22 @@ export default function ChatApp({ user, onSignOut }) {
   const [notice, setNotice] = useState(null);
   const noticeTimer = useRef(null);
 
-  const sortedGroups = useMemo(() => Object.values(groups).sort((a, b) => lastActivity(b) - lastActivity(a)), [groups]);
   const onlineIds = useMemo(() => new Set(online), [online]);
   const active = groups[activeId] ?? null;
   const activeLatest = active ? lastActivity(active) : 0;
 
+  // Newest activity first. Empty DMs stay hidden until someone writes, unless you have them open.
+  const { dms, groupList } = useMemo(() => {
+    const sorted = Object.values(groups).sort((a, b) => lastActivity(b) - lastActivity(a));
+    return {
+      dms: sorted.filter((g) => g.type === 'dm' && (g.messages.length > 0 || g.id === activeId)),
+      groupList: sorted.filter((g) => g.type !== 'dm'),
+    };
+  }, [groups, activeId]);
+
   const unread = useMemo(() => {
     const counts = {};
-    for (const group of sortedGroups) {
+    for (const group of Object.values(groups)) {
       const seen = lastRead[group.id] ?? 0;
       counts[group.id] =
         group.id === activeId
@@ -37,14 +47,16 @@ export default function ChatApp({ user, onSignOut }) {
           : group.messages.filter((m) => m.type === 'user' && m.userId !== user.id && m.ts > seen).length;
     }
     return counts;
-  }, [sortedGroups, lastRead, activeId, user.id]);
+  }, [groups, lastRead, activeId, user.id]);
 
   const totalUnread = Object.values(unread).reduce((sum, n) => sum + n, 0);
 
-  // On a wide screen, always show a chat if there is one.
+  // On a wide screen, always show something: the most recent chat.
   useEffect(() => {
-    if (!active && sortedGroups.length && isWide()) setActiveId(sortedGroups[0].id);
-  }, [active, sortedGroups]);
+    if (active || activeId === FRIENDS || !isWide()) return;
+    const latest = [...dms, ...groupList].sort((a, b) => lastActivity(b) - lastActivity(a))[0];
+    if (latest) setActiveId(latest.id);
+  }, [active, activeId, dms, groupList]);
 
   useEffect(() => {
     if (!activeId || !activeLatest) return;
@@ -57,14 +69,21 @@ export default function ChatApp({ user, onSignOut }) {
     document.title = totalUnread ? `(${totalUnread}) Gjeng` : 'Gjeng';
   }, [totalUnread]);
 
+  useEffect(() => {
+    if (friendNotice) showNotice(friendNotice.text);
+  }, [friendNotice]);
+
   function showNotice(text) {
     clearTimeout(noticeTimer.current);
     setNotice(text);
     noticeTimer.current = setTimeout(() => setNotice(null), 2500);
   }
 
-  async function copyCode(code) {
-    showNotice((await copyText(code)) ? `Invite code ${code} copied` : `Invite code: ${code}`);
+  // Runs a server action and shows its error as a notice instead of throwing.
+  const attempt = (promise) => promise.catch((err) => showNotice(err.message));
+
+  async function copyCode(code, label = 'Invite code') {
+    showNotice((await copyText(code)) ? `${label} ${code} copied` : `${label}: ${code}`);
   }
 
   async function createGroup(name) {
@@ -88,6 +107,34 @@ export default function ChatApp({ user, onSignOut }) {
     } catch (err) {
       showNotice(err.message);
     }
+  }
+
+  async function addFriendByCode(code) {
+    const { status: result, name } = await actions.addFriendByCode(code);
+    showNotice(result === 'accepted' ? `You and ${name} are now friends` : `Friend request sent to ${name}`);
+  }
+
+  function addFriend(friendId) {
+    attempt(
+      actions.addFriend(friendId).then(({ status: result, name }) =>
+        showNotice(result === 'accepted' ? `You and ${name} are now friends` : `Friend request sent to ${name}`),
+      ),
+    );
+  }
+
+  function removeFriend(friend) {
+    if (window.confirm(`Remove ${friend.name} as a friend? You won't be able to message each other directly.`)) {
+      attempt(actions.removeFriend(friend.id));
+    }
+  }
+
+  function openDm(friendId) {
+    attempt(
+      actions.openDm(friendId).then(({ groupId }) => {
+        setMembersOpen(false);
+        setActiveId(groupId);
+      }),
+    );
   }
 
   function signOut() {
@@ -114,67 +161,98 @@ export default function ChatApp({ user, onSignOut }) {
     );
   }
 
+  const isGroup = active && active.type !== 'dm';
+  const mainOpen = Boolean(active) || activeId === FRIENDS;
   const typingNames = active ? Object.values(typing[active.id] ?? {}) : [];
 
+  let main;
+  if (activeId === FRIENDS) {
+    main = (
+      <FriendsPanel
+        me={me}
+        friends={friends}
+        onlineIds={onlineIds}
+        onBack={() => setActiveId(null)}
+        onCopyCode={copyCode}
+        onAdd={addFriendByCode}
+        onRespond={(fromId, accept) => attempt(actions.respondToFriend(fromId, accept))}
+        onCancel={(friendId) => attempt(actions.cancelFriendRequest(friendId))}
+        onRemove={removeFriend}
+        onMessage={openDm}
+      />
+    );
+  } else if (active) {
+    main = (
+      <ChatPanel
+        key={active.id}
+        group={active}
+        me={me}
+        onlineIds={onlineIds}
+        typingNames={typingNames}
+        membersOpen={membersOpen}
+        onBack={() => setActiveId(null)}
+        onToggleMembers={() => setMembersOpen((open) => !open)}
+        onCopyCode={copyCode}
+        onSend={(text) => actions.sendMessage(active.id, text)}
+        onTyping={() => actions.sendTyping(active.id)}
+        onReact={(messageId, emoji) => attempt(actions.toggleReaction(active.id, messageId, emoji))}
+        onError={showNotice}
+      />
+    );
+  } else {
+    const hasChats = dms.length + groupList.length > 0;
+    main = (
+      <section className="placeholder">
+        <Logo size={64} />
+        <h2>{hasChats ? 'Pick a chat' : 'Welcome to Gjeng'}</h2>
+        <p>
+          {hasChats
+            ? 'Choose a chat on the left to start talking.'
+            : 'Create a group for your crew, or join one with an invite code from a friend.'}
+        </p>
+        <div className="placeholder-actions">
+          <button className="button primary" onClick={() => setModal('create')}>
+            <PlusIcon /> New group
+          </button>
+          <button className="button" onClick={() => setModal('join')}>
+            <LinkIcon /> Join with code
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className={`app ${active ? 'chat-open' : ''} ${active && membersOpen ? 'members-open' : ''}`}>
+    <div className={`app ${mainOpen ? 'chat-open' : ''} ${isGroup && membersOpen ? 'members-open' : ''}`}>
       <Sidebar
         me={me}
-        groups={sortedGroups}
+        dms={dms}
+        groups={groupList}
         activeId={activeId}
         unread={unread}
+        onlineIds={onlineIds}
+        requestCount={friends.incoming.length}
         onSelect={setActiveId}
+        onFriends={() => setActiveId(FRIENDS)}
         onNew={() => setModal('create')}
         onJoin={() => setModal('join')}
         onSignOut={signOut}
       />
 
-      {active ? (
-        <ChatPanel
-          key={active.id}
-          group={active}
-          me={me}
-          onlineIds={onlineIds}
-          typingNames={typingNames}
-          membersOpen={membersOpen}
-          onBack={() => setActiveId(null)}
-          onToggleMembers={() => setMembersOpen((open) => !open)}
-          onCopyCode={copyCode}
-          onSend={(text) => actions.sendMessage(active.id, text)}
-          onTyping={() => actions.sendTyping(active.id)}
-          onReact={(messageId, emoji) =>
-            actions.toggleReaction(active.id, messageId, emoji).catch((err) => showNotice(err.message))
-          }
-          onError={showNotice}
-        />
-      ) : (
-        <section className="placeholder">
-          <Logo size={64} />
-          <h2>{sortedGroups.length ? 'Pick a group' : 'Welcome to Gjeng'}</h2>
-          <p>
-            {sortedGroups.length
-              ? 'Choose a group on the left to start chatting.'
-              : 'Create a group for your crew, or join one with an invite code from a friend.'}
-          </p>
-          <div className="placeholder-actions">
-            <button className="button primary" onClick={() => setModal('create')}>
-              <PlusIcon /> New group
-            </button>
-            <button className="button" onClick={() => setModal('join')}>
-              <LinkIcon /> Join with code
-            </button>
-          </div>
-        </section>
-      )}
+      {main}
 
-      {active && membersOpen && (
+      {isGroup && membersOpen && (
         <MembersPanel
           group={active}
           me={me}
+          friends={friends}
           onlineIds={onlineIds}
           onClose={() => setMembersOpen(false)}
           onCopyCode={copyCode}
           onLeave={() => leaveGroup(active)}
+          onAddFriend={addFriend}
+          onRespond={(fromId, accept) => attempt(actions.respondToFriend(fromId, accept))}
+          onMessage={openDm}
         />
       )}
 

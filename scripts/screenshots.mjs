@@ -44,7 +44,7 @@ async function person(name, colour, { screenshotJoin = false } = {}) {
   await page.getByRole('button', { name: `Colour ${colour}`, exact: true }).click();
   if (screenshotJoin) await shot(page, '1-join');
   await page.getByRole('button', { name: 'Start chatting' }).click();
-  await page.getByRole('heading', { name: 'Your groups' }).waitFor();
+  await page.getByRole('heading', { name: 'Groups', exact: true }).waitFor();
   return page;
 }
 
@@ -72,7 +72,7 @@ async function join(page, code) {
 }
 
 async function open(page, groupName) {
-  await page.getByRole('navigation', { name: 'Your groups' }).getByRole('button', { name: groupName }).click();
+  await page.getByRole('navigation', { name: 'Chats' }).getByRole('button', { name: groupName }).click();
   await page.getByRole('heading', { level: 1, name: groupName }).waitFor();
 }
 
@@ -80,6 +80,34 @@ async function react(page, text, emoji) {
   const message = page.getByRole('log').locator('.message', { hasText: text });
   await message.locator('.message-text').hover();
   await message.getByRole('button', { name: `React with ${emoji}` }).click();
+}
+
+async function openFriends(page) {
+  await page.getByRole('button', { name: 'Friends' }).click();
+  await page.getByRole('heading', { level: 1, name: 'Friends' }).waitFor();
+}
+
+async function sendFriendRequest(page, code) {
+  await openFriends(page);
+  await page.getByLabel('Friend code').fill(code);
+  await page.getByRole('button', { name: 'Send request' }).click();
+  await page.getByRole('region', { name: 'Sent requests' }).waitFor();
+}
+
+async function accept(page, name) {
+  await page
+    .getByRole('region', { name: 'Friend requests' })
+    .getByRole('listitem')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Accept' })
+    .click();
+  await page.getByRole('button', { name: `Message ${name}` }).waitFor();
+}
+
+async function message(page, name) {
+  await openFriends(page);
+  await page.getByRole('button', { name: `Message ${name}` }).click();
+  await page.getByRole('heading', { level: 1, name }).waitFor();
 }
 
 try {
@@ -118,6 +146,23 @@ try {
   await open(ola, 'Kollektiv 🏠');
   await say(ola, 'Who finished the milk again?? 🥛');
 
+  // Jonas and Ola become Emma's friends, Sara's request is still waiting.
+  await openFriends(emma);
+  const emmaCode = (await emma.getByTestId('friend-code').textContent()).trim();
+  for (const p of [jonas, ola]) await sendFriendRequest(p, emmaCode);
+  await accept(emma, 'Jonas');
+  await accept(emma, 'Ola');
+  await sendFriendRequest(sara, emmaCode);
+
+  await message(jonas, 'Emma');
+  await say(jonas, 'You coming to the gym later?');
+  await message(emma, 'Jonas');
+  await say(emma, 'Yes! I can bring the protein bars 😅');
+  await say(jonas, 'Haha deal');
+  await open(jonas, 'Gym crew');
+  await open(emma, 'Gym crew');
+  await emma.getByRole('status').filter({ hasText: 'friend request' }).waitFor({ state: 'hidden' });
+
   // Emma sees the chat while Jonas is typing.
   await emma.bringToFront(); // background tabs pause animations
   await emma.mouse.move(5, 5);
@@ -140,10 +185,17 @@ try {
   await emma.waitForTimeout(300); // let colour transitions finish
   await shot(emma, '5-dark');
   await emma.emulateMedia({ colorScheme: 'light' });
+  await emma.waitForTimeout(300);
+
+  await openFriends(emma);
+  await shot(emma, '8-friends');
+  await open(emma, 'Jonas');
+  await shot(emma, '9-dm');
+  await open(emma, 'Gym crew');
 
   await emma.setViewportSize(PHONE);
   await shot(emma, '6-phone-chat');
-  await emma.getByRole('button', { name: 'Back to groups' }).click();
+  await emma.getByRole('button', { name: 'Back to chats' }).click();
   await shot(emma, '7-phone-list');
 
   console.log(`Screenshots saved to ${OUT}`);

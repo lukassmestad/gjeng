@@ -10,9 +10,24 @@ const initialState = {
   error: null,
   me: null,
   groups: {},
+  friends: { friends: [], incoming: [], outgoing: [] },
+  friendNotice: null, // { text } when a request arrives or gets accepted
   online: [],
   typing: {}, // groupId -> { userId: name }
 };
+
+// Works out what changed in the friends list, so the app can tell you about it.
+function friendNotice(before, after) {
+  const known = (list) => new Set(list.map((u) => u.id));
+  const wasIncoming = known(before.incoming);
+  const wasOutgoing = known(before.outgoing);
+  const wasFriend = known(before.friends);
+  const asked = after.incoming.find((u) => !wasIncoming.has(u.id));
+  if (asked) return { text: `${asked.name} sent you a friend request` };
+  const accepted = after.friends.find((u) => !wasFriend.has(u.id) && wasOutgoing.has(u.id));
+  if (accepted) return { text: `${accepted.name} accepted your friend request` };
+  return null;
+}
 
 function updateGroup(state, groupId, update) {
   const group = state.groups[groupId];
@@ -40,7 +55,14 @@ function reducer(state, action) {
         me: action.me,
         online: action.online,
         groups: Object.fromEntries(action.groups.map((g) => [g.id, g])),
+        friends: action.friends,
         typing: {},
+      };
+    case 'friends':
+      return {
+        ...state,
+        friends: action.friends,
+        friendNotice: friendNotice(state.friends, action.friends) ?? state.friendNotice,
       };
     case 'group:upsert':
       return { ...state, groups: { ...state.groups, [action.group.id]: action.group } };
@@ -97,6 +119,7 @@ export function useChat(user) {
     socket.on('disconnect', () => dispatch({ type: 'status', status: 'offline' }));
     socket.on('init', (data) => dispatch({ type: 'init', ...data }));
     socket.on('presence', (online) => dispatch({ type: 'presence', online }));
+    socket.on('friends', (friends) => dispatch({ type: 'friends', friends }));
     socket.on('group:upsert', (group) => dispatch({ type: 'group:upsert', group }));
     socket.on('group:removed', ({ groupId }) => dispatch({ type: 'group:removed', groupId }));
     socket.on('group:members', ({ groupId, members }) => dispatch({ type: 'group:members', groupId, members }));
@@ -137,6 +160,12 @@ export function useChat(user) {
       leaveGroup: (groupId) => request('group:leave', { groupId }),
       sendMessage: (groupId, text) => request('message:send', { groupId, text }),
       toggleReaction: (groupId, messageId, emoji) => request('reaction:toggle', { groupId, messageId, emoji }),
+      addFriendByCode: (code) => request('friend:add', { code }),
+      addFriend: (friendId) => request('friend:add', { friendId }),
+      respondToFriend: (fromId, accept) => request('friend:respond', { fromId, accept }),
+      cancelFriendRequest: (friendId) => request('friend:cancel', { friendId }),
+      removeFriend: (friendId) => request('friend:remove', { friendId }),
+      openDm: (friendId) => request('dm:open', { friendId }),
       sendTyping: (groupId) => socketRef.current?.emit('typing', { groupId }),
     }),
     [request],

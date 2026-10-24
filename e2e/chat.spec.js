@@ -7,7 +7,7 @@ async function newPerson(browser, name) {
   await page.goto('/');
   await page.getByLabel('Your name').fill(name);
   await page.getByRole('button', { name: 'Start chatting' }).click();
-  await expect(page.getByRole('heading', { name: 'Your groups' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
   return page;
 }
 
@@ -49,7 +49,7 @@ test('two people can chat in a group in real time', async ({ browser }) => {
   // Your own messages show your name like everyone else's, not "You".
   const bosMessage = messages(bo).locator('.message', { hasText: 'Leg day tomorrow?' });
   await expect(bosMessage.locator('.message-author')).toHaveText('Bo');
-  await expect(bo.getByRole('navigation', { name: 'Your groups' })).toContainText('Bo: Leg day tomorrow?');
+  await expect(bo.getByRole('navigation', { name: 'Chats' })).toContainText('Bo: Leg day tomorrow?');
   await expect(ada.getByText('Bo is typing…')).toBeHidden();
 
   await composer(ada).fill('Yes! 6pm');
@@ -86,7 +86,7 @@ test('unread messages get a badge until you open the group', async ({ browser })
   await composer(bo).fill('Anyone there?');
   await composer(bo).press('Enter');
 
-  const gymItem = ada.getByRole('navigation', { name: 'Your groups' }).getByRole('button', { name: /Gym crew/ });
+  const gymItem = ada.getByRole('navigation', { name: 'Chats' }).getByRole('button', { name: /Gym crew/ });
   await expect(gymItem.getByLabel('1 unread')).toBeVisible();
   await expect(ada).toHaveTitle('(1) Gjeng');
 
@@ -121,4 +121,52 @@ test('leaving a group removes it from your list', async ({ browser }) => {
   await expect(bo.getByRole('heading', { name: 'Welcome to Gjeng' })).toBeVisible();
   await expect(messages(ada).getByText('Bo left the group')).toBeVisible();
   await expect(ada.getByText('1 member · 1 online')).toBeVisible();
+});
+
+test('friends can add each other by code and chat privately', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  const bo = await newPerson(browser, 'Bo');
+
+  // Bo shares his friend code and Ada sends a request with it.
+  await bo.getByRole('button', { name: 'Friends' }).click();
+  const code = (await bo.getByTestId('friend-code').textContent()).trim();
+  await ada.getByRole('button', { name: 'Friends' }).click();
+  await ada.getByLabel('Friend code').fill(code);
+  await ada.getByRole('button', { name: 'Send request' }).click();
+  await expect(ada.getByRole('region', { name: 'Sent requests' })).toContainText('Bo');
+
+  // Bo gets a badge and a notice, and accepts.
+  await expect(bo.getByLabel('1 friend requests')).toBeVisible();
+  await expect(bo.getByText('Ada sent you a friend request')).toBeVisible();
+  await bo.getByRole('region', { name: 'Friend requests' }).getByRole('button', { name: 'Accept' }).click();
+  await expect(ada.getByText('Bo accepted your friend request')).toBeVisible();
+
+  // Ada opens a direct message, and only Bo gets it.
+  await ada.getByRole('button', { name: 'Message Bo' }).click();
+  await expect(ada.getByRole('heading', { level: 1, name: 'Bo' })).toBeVisible();
+  await expect(ada.getByText('This is the start of your direct messages with Bo.')).toBeVisible();
+  await composer(ada).fill('Want to grab lunch?');
+  await composer(ada).press('Enter');
+
+  const dmItem = bo.getByRole('navigation', { name: 'Chats' }).getByRole('button', { name: /Ada/ });
+  await expect(dmItem.getByLabel('1 unread')).toBeVisible();
+  await dmItem.click();
+  await expect(messages(bo).getByText('Want to grab lunch?')).toBeVisible();
+});
+
+test('you can add friends from a group member list', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  const bo = await newPerson(browser, 'Bo');
+  const code = await createGroup(ada, 'Climbing');
+  await joinGroup(bo, code);
+  await expect(messages(ada).getByText('Bo joined the group')).toBeVisible();
+
+  await ada.getByRole('button', { name: 'Members', exact: true }).click();
+  await ada.getByRole('button', { name: 'Add Bo as friend' }).click();
+  await expect(ada.getByRole('complementary', { name: 'Members' }).getByText('Request sent', { exact: true })).toBeVisible();
+
+  await bo.getByRole('button', { name: 'Members', exact: true }).click();
+  await bo.getByRole('button', { name: 'Accept Ada' }).click();
+  await expect(bo.getByRole('button', { name: 'Message Ada' })).toBeVisible();
+  await expect(ada.getByRole('button', { name: 'Message Bo' })).toBeVisible();
 });

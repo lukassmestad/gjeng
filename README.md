@@ -8,6 +8,10 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 
 ![Gjeng on a laptop: a group chat with reactions and a typing indicator](docs/chat.png)
 
+| Friends | Direct message |
+| --- | --- |
+| <img src="docs/friends.png" alt="Friends page with friend code, requests and friends"> | <img src="docs/dm.png" alt="A direct message between two friends"> |
+
 | Phone | Dark mode |
 | --- | --- |
 | <img src="docs/phone-chat.png" width="260" alt="Gjeng chat on a phone"> | <img src="docs/dark.png" width="520" alt="Gjeng in dark mode"> |
@@ -17,6 +21,7 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 - **Join with a name and a colour.** There's no password and no account, so nothing sensitive is stored.
 - **Groups:** create a group, invite people with a code like `K7P2QX`, join other groups with their code, and leave when you want.
 - **Live chat:** messages show up instantly for everyone in the group. It also shows "Jonas is typing…" and who is online.
+- **Friends and direct messages:** everyone has a friend code. Add people by code or straight from a group's member list, accept or decline requests, and chat one-on-one.
 - **Emoji reactions** on messages (👍 ❤️ 😂 😮 🔥).
 - **Unread badges** in the group list and in the browser tab title.
 - **Works on phones** (one screen at a time, with a back button) and in **dark mode**.
@@ -41,9 +46,9 @@ Then open <http://localhost:3000>.
 ## Tests
 
 ```bash
-npm test                      # 17 unit tests for the chat logic (Vitest)
+npm test                      # 28 unit tests for the chat and friends logic (Vitest)
 npx playwright install chromium   # first time only
-npm run test:e2e              # 5 browser tests where two people chat with each other (Playwright)
+npm run test:e2e              # 7 browser tests where two people chat and become friends (Playwright)
 npm run screenshots           # fills a test server with a made-up chat and saves screenshots to captures/
 ```
 
