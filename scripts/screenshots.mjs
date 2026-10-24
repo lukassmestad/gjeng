@@ -146,6 +146,15 @@ try {
   await open(ola, 'Kollektiv 🏠');
   await say(ola, 'Who finished the milk again?? 🥛');
 
+  // A big group, to show the "+N" in the group folder icon.
+  const classmates = [];
+  for (const [name, colour] of [['Noah', 2], ['Ingrid', 4], ['Lars', 6], ['Maja', 8], ['Elias', 3], ['Nora', 5], ['Henrik', 1]]) {
+    classmates.push(await person(name, colour));
+  }
+  const classCode = await create(emma, 'Class of 2027');
+  for (const p of [jonas, sara, ola, ...classmates]) await join(p, classCode);
+  await say(classmates[0], 'Does anyone have the notes from Thursday?');
+
   // Jonas and Ola become Emma's friends, Sara's request is still waiting.
   await openFriends(emma);
   const emmaCode = (await emma.getByTestId('friend-code').textContent()).trim();
@@ -171,9 +180,6 @@ try {
   await emma.waitForTimeout(300);
   await shot(emma, '2-chat');
 
-  await emma.getByRole('button', { name: 'Members', exact: true }).click();
-  await shot(emma, '3-members');
-  await emma.getByRole('button', { name: 'Members', exact: true }).click();
 
   await emma.getByRole('button', { name: 'Join with code' }).first().click();
   await emma.getByLabel('Invite code').fill('K7P2');
@@ -191,6 +197,10 @@ try {
   await shot(emma, '8-friends');
   await open(emma, 'Jonas');
   await shot(emma, '9-dm');
+  for (const p of classmates.slice(-3)) await p.context().close();
+  await open(emma, 'Class of 2027');
+  await emma.getByRole('heading', { name: 'Offline — 3' }).waitFor();
+  await shot(emma, '10-big-group');
   await open(emma, 'Gym crew');
 
   await emma.setViewportSize(PHONE);

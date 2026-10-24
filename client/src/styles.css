@@ -188,8 +188,7 @@ legend {
   font-size: 14px;
 }
 
-.avatar,
-.group-avatar {
+.avatar {
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -203,9 +202,32 @@ legend {
   user-select: none;
 }
 
+/* The "app folder": a softly tinted rounded square with member pictures in a grid. */
 .group-avatar {
-  border-radius: 30%;
-  font-size: calc(var(--size) * 0.45);
+  display: inline-grid;
+  align-content: start;
+  width: var(--size);
+  height: var(--size);
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--tint) 35%, var(--border));
+  border-radius: 28%;
+  background: color-mix(in srgb, var(--tint) 18%, var(--surface));
+  user-select: none;
+}
+
+.mini-avatar {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mini-avatar.more {
+  background: var(--muted);
 }
 
 .presence-dot {
@@ -341,7 +363,7 @@ legend {
 }
 
 .app.members-open {
-  grid-template-columns: 320px minmax(0, 1fr) 280px;
+  grid-template-columns: 320px minmax(0, 1fr) 270px;
 }
 
 /* ---------- Sidebar ---------- */
@@ -869,27 +891,46 @@ legend {
 .members-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-height: 0;
-  padding: 16px;
+  padding: 12px 12px 16px;
   overflow-y: auto;
   border-left: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--sidebar);
 }
 
 .members-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-left: 4px;
 }
 
 .members-header h2 {
-  font-size: 16px;
+  font-size: 15px;
+}
+
+.members-hero {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  text-align: center;
+}
+
+.members-hero-name {
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.members-panel .section-title {
+  padding: 4px 8px 6px;
 }
 
 .member-list {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -899,7 +940,38 @@ legend {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 4px;
+  min-height: 46px;
+  padding: 5px 8px;
+  border-radius: 10px;
+}
+
+.member:hover {
+  background: var(--hover);
+}
+
+.member .member-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Message / Add friend only show when you point at someone, to keep the list calm.
+   Accept stays visible because it needs an answer. Touch screens can't hover, so they always show. */
+@media (hover: hover) {
+  .member .button:not(.primary) {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  .member:hover .button,
+  .member:focus-within .button {
+    opacity: 1;
+  }
+}
+
+/* Offline people are faded, like in Discord. */
+.member.offline .avatar,
+.member.offline .member-name {
+  opacity: 0.45;
 }
 
 .member-text,

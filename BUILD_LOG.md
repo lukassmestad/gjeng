@@ -95,11 +95,28 @@ While checking the screenshots, the AI noticed a notice that seemed to never go 
 
 I also asked whether **voice chat** would work with a weak server. The AI explained that voice would go directly between the browsers (WebRTC), with the server only connecting people, so the server's connection isn't the problem. The catch is that browsers only allow the microphone on `https` or `localhost`.
 
-## 8. What surprised me
+## 8. Group icons and a Discord-style member list
+
+My prompts:
+
+- *"Add all profiles in like an app folder for the group chat, so it shows the larger icon with all members icons."*
+- *"For a group, show active group members on a tab to the right similar to Discord's solution."*
+
+What changed:
+
+- **Group icons look like an app folder on a phone.** They're a rounded square, tinted in the group's colour, with every member's profile picture inside. Up to 4 members fit in a 2×2 grid, bigger groups get a 3×3 grid, and if there are more than 9 the last spot shows "+N". A large version sits at the top of the member list.
+- **Member list on the right, like Discord.** It's open by default on wide screens and split into "Online — N" and "Offline — N", with offline people faded. You can hide it with the members button and it remembers that. On smaller screens and phones it slides over the chat instead, so it doesn't squeeze the messages.
+- To keep the list calm, "Message" and "Add friend" only appear when you point at someone. "Accept" always shows, because it needs an answer. On touch screens all buttons show, since there's no pointing there.
+
+A new browser test checks the Online/Offline sections (one person closes the app and moves to Offline) and that hiding the list is remembered after a reload. The old tests had clicked a button to *open* the member list, and now it's already open, so they were updated. That was 8 browser tests in total, all passing.
+
+![A big group with the folder icon and the member list](docs/big-group.png)
+
+## 9. What surprised me
 
 How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
 
-## 9. What I'd add next
+## 10. What I'd add next
 
 - Sending images
 - Voice chat

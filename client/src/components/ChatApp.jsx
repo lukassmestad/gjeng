@@ -10,7 +10,20 @@ import MembersPanel from './MembersPanel.jsx';
 import Sidebar from './Sidebar.jsx';
 
 const FRIENDS = 'friends'; // activeId when the Friends page is open instead of a chat
+const MEMBERS_KEY = 'gjeng.showMembers';
 const isWide = () => window.matchMedia('(min-width: 721px)').matches;
+
+// True while the window matches the media query, and updates when the window is resized.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const list = window.matchMedia(query);
+    const update = () => setMatches(list.matches);
+    list.addEventListener('change', update);
+    return () => list.removeEventListener('change', update);
+  }, [query]);
+  return matches;
+}
 const lastActivity = (group) => group.messages.at(-1)?.ts ?? 0;
 
 export default function ChatApp({ user, onSignOut }) {
@@ -19,7 +32,12 @@ export default function ChatApp({ user, onSignOut }) {
 
   const [activeId, setActiveId] = useState(null);
   const [modal, setModal] = useState(null); // 'create' | 'join' | null
-  const [membersOpen, setMembersOpen] = useState(false);
+  // Wide screens show the member list as a column (open unless you hide it, and remembered).
+  // Smaller screens show it over the chat, only when you ask for it.
+  const roomy = useMediaQuery('(min-width: 1101px)');
+  const [membersPinned, setMembersPinned] = useState(() => storage.get(MEMBERS_KEY, true));
+  const [membersOverlay, setMembersOverlay] = useState(false);
+  const membersOpen = roomy ? membersPinned : membersOverlay;
   const [lastRead, setLastRead] = useState(() => storage.get(readKey, {}));
   const [notice, setNotice] = useState(null);
   const noticeTimer = useRef(null);
@@ -79,6 +97,20 @@ export default function ChatApp({ user, onSignOut }) {
     noticeTimer.current = setTimeout(() => setNotice(null), 2500);
   }
 
+  function setMembersOpen(open) {
+    if (roomy) {
+      setMembersPinned(open);
+      storage.set(MEMBERS_KEY, open);
+    } else {
+      setMembersOverlay(open);
+    }
+  }
+
+  function selectChat(id) {
+    setActiveId(id);
+    setMembersOverlay(false);
+  }
+
   // Runs a server action and shows its error as a notice instead of throwing.
   const attempt = (promise) => promise.catch((err) => showNotice(err.message));
 
@@ -102,7 +134,7 @@ export default function ChatApp({ user, onSignOut }) {
     if (!window.confirm(`Leave "${group.name}"? You'll need the invite code to come back.`)) return;
     try {
       await actions.leaveGroup(group.id);
-      setMembersOpen(false);
+      setMembersOverlay(false);
       setActiveId(null);
     } catch (err) {
       showNotice(err.message);
@@ -131,7 +163,7 @@ export default function ChatApp({ user, onSignOut }) {
   function openDm(friendId) {
     attempt(
       actions.openDm(friendId).then(({ groupId }) => {
-        setMembersOpen(false);
+        setMembersOverlay(false);
         setActiveId(groupId);
       }),
     );
@@ -191,7 +223,7 @@ export default function ChatApp({ user, onSignOut }) {
         typingNames={typingNames}
         membersOpen={membersOpen}
         onBack={() => setActiveId(null)}
-        onToggleMembers={() => setMembersOpen((open) => !open)}
+        onToggleMembers={() => setMembersOpen(!membersOpen)}
         onCopyCode={copyCode}
         onSend={(text) => actions.sendMessage(active.id, text)}
         onTyping={() => actions.sendTyping(active.id)}
@@ -232,7 +264,7 @@ export default function ChatApp({ user, onSignOut }) {
         unread={unread}
         onlineIds={onlineIds}
         requestCount={friends.incoming.length}
-        onSelect={setActiveId}
+        onSelect={selectChat}
         onFriends={() => setActiveId(FRIENDS)}
         onNew={() => setModal('create')}
         onJoin={() => setModal('join')}

@@ -21,6 +21,8 @@ Made for Mandatory Assignment 3 (Vibe Coding) at OsloMet. It was built with Clau
 - **Join with a name and a colour.** There's no password and no account, so nothing sensitive is stored.
 - **Groups:** create a group, invite people with a code like `K7P2QX`, join other groups with their code, and leave when you want.
 - **Live chat:** messages show up instantly for everyone in the group. It also shows "Jonas is typing…" and who is online.
+- **Group icons like an app folder:** every member's picture inside the group's icon, with "+N" for big groups.
+- **Member list on the right** (like Discord), split into Online and Offline.
 - **Friends and direct messages:** everyone has a friend code. Add people by code or straight from a group's member list, accept or decline requests, and chat one-on-one.
 - **Emoji reactions** on messages (👍 ❤️ 😂 😮 🔥).
 - **Unread badges** in the group list and in the browser tab title.
@@ -48,7 +50,7 @@ Then open <http://localhost:3000>.
 ```bash
 npm test                      # 28 unit tests for the chat and friends logic (Vitest)
 npx playwright install chromium   # first time only
-npm run test:e2e              # 7 browser tests where two people chat and become friends (Playwright)
+npm run test:e2e              # 8 browser tests where two people chat and become friends (Playwright)
 npm run screenshots           # fills a test server with a made-up chat and saves screenshots to captures/
 ```
 

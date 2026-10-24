@@ -115,7 +115,7 @@ test('leaving a group removes it from your list', async ({ browser }) => {
   await expect(bo.getByRole('heading', { level: 1, name: 'Book club' })).toBeVisible();
 
   bo.once('dialog', (dialog) => dialog.accept());
-  await bo.getByRole('button', { name: 'Members' }).click();
+  await expect(bo.getByRole('complementary', { name: 'Members' })).toBeVisible();
   await bo.getByRole('button', { name: 'Leave group' }).click();
 
   await expect(bo.getByRole('heading', { name: 'Welcome to Gjeng' })).toBeVisible();
@@ -161,12 +161,36 @@ test('you can add friends from a group member list', async ({ browser }) => {
   await joinGroup(bo, code);
   await expect(messages(ada).getByText('Bo joined the group')).toBeVisible();
 
-  await ada.getByRole('button', { name: 'Members', exact: true }).click();
+  await expect(ada.getByRole('complementary', { name: 'Members' })).toBeVisible();
   await ada.getByRole('button', { name: 'Add Bo as friend' }).click();
   await expect(ada.getByRole('complementary', { name: 'Members' }).getByText('Request sent', { exact: true })).toBeVisible();
 
-  await bo.getByRole('button', { name: 'Members', exact: true }).click();
+  await expect(bo.getByRole('complementary', { name: 'Members' })).toBeVisible();
   await bo.getByRole('button', { name: 'Accept Ada' }).click();
   await expect(bo.getByRole('button', { name: 'Message Ada' })).toBeVisible();
   await expect(ada.getByRole('button', { name: 'Message Bo' })).toBeVisible();
+});
+
+test('the member list shows who is online and who is offline', async ({ browser }) => {
+  const ada = await newPerson(browser, 'Ada');
+  const bo = await newPerson(browser, 'Bo');
+  const code = await createGroup(ada, 'Running club');
+  await joinGroup(bo, code);
+
+  // On a wide screen the list is open next to the chat without clicking anything.
+  const members = ada.getByRole('complementary', { name: 'Members' });
+  await expect(members.getByRole('heading', { name: 'Online — 2' })).toBeVisible();
+  await expect(members.getByRole('region', { name: 'Online members' })).toContainText('Bo');
+
+  // Bo closes the app and moves down to Offline.
+  await bo.context().close();
+  await expect(members.getByRole('heading', { name: 'Offline — 1' })).toBeVisible();
+  await expect(members.getByRole('region', { name: 'Offline members' })).toContainText('Bo');
+
+  // Hiding the list is remembered after a reload.
+  await ada.getByRole('button', { name: 'Members', exact: true }).click();
+  await expect(members).toBeHidden();
+  await ada.reload();
+  await expect(ada.getByRole('heading', { level: 1, name: 'Running club' })).toBeVisible();
+  await expect(members).toBeHidden();
 });
