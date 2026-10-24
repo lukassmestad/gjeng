@@ -22,6 +22,18 @@ export const COLORS = [
   '#f08c00',
 ];
 
-export const REACTIONS = ['👍', '❤️', '😂', '😮', '🔥'];
+export const REACTIONS = ['👍', '👎', '❤️', '😂', '😮', '😡', '🔥'];
+
+// Display names are free text (spaces and emoji are fine) and don't have to be unique.
+export const DISPLAY_NAME_MAX = 32;
+
+// Profile pictures are shrunk in the browser before upload, so they stay small.
+export const AVATAR_MAX_LENGTH = 200_000;
+
+// Pictures and files attached to messages (pictures are shrunk first).
+export const ATTACHMENT_MAX_BYTES = 1_000_000;
+
+// "Invisible" is left out on purpose: in a small friend group it mostly causes confusion.
+export const STATUS_VALUES = ['online', 'away', 'dnd'];
 
 export const INVITE_CODE_LENGTH = 6;

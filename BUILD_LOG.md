@@ -133,14 +133,77 @@ Tests: 35 unit tests and 10 browser tests, all passing. New ones cover unique us
 
 ![Adding friends to a group](docs/add-friends.png)
 
-## 10. What surprised me
+## 10. Voice calls, profiles, status, files and a resizable layout
+
+This was the biggest round. I gave the AI a screenshot of Discord's call screen and a list of wishes, then left it to work on its own while I was away.
+
+My prompts (shortened):
+
+- *"Add voice calls, both in direct messages where two people call and group calls where multiple profiles appear at the top, similar to Discord's call UI. A little icon should appear when a participant is talking, and when someone is muted, darken their whole profile picture as well as showing a little mute icon. When only one participant is in the call it should still begin, and they can wait there."*
+- *"Allow setting profile pictures, and changing display names, not account names."*
+- *"Add thumbs down and angry face to reactions. The group code should be a bit more hidden, in case someone is peeking at your phone in public."*
+- *"Have your own messages slightly highlighted, but don't mix it with the hover highlight. Add an emoji button and an attach file/image button. The little scrollbar in the message box clips weirdly and isn't needed for short messages."*
+- *"Make it possible to widen or narrow the side panels. Show your own status in the bottom-left corner."* (With a screenshot where I'd drawn arrows on the panel edges.)
+
+Earlier I'd asked whether voice chat would even work with a weak server. The AI explained that the sound goes **directly between the browsers** (WebRTC). The server only introduces them to each other, so the server's connection isn't the bottleneck.
+
+What was built:
+
+- **Voice calls** in groups and DMs. The call area at the top of the chat is styled after the Discord screenshot:
+  - One bubble per person.
+  - A green ring and speaker icon on whoever is **talking**. The app measures each person's volume a few times a second.
+  - **Muted or deafened** people are darkened, with a red icon.
+  - Buttons to mute, deafen and leave, plus a timer.
+  - You can start a call alone and wait.
+  - DM calls **ring** on the friend's screen, unless they're on Do not disturb.
+  - The chat notes "Emma started a call" and "Call ended after 3 minutes".
+  - The sidebar shows which chats have a call going on.
+- **Bottom-left corner (like Discord):** your picture, name and status. You pick Online, Away or Do not disturb, and everyone sees it as a coloured dot. While you're in a call you also get mute, deafen and "Voice connected".
+- **Profiles:** upload a picture (shrunk in the browser first) and set a display name with spaces and emoji. The username stays, since friends add you by it. Names and pictures update everywhere at once, even on old messages.
+- **Pictures and files** in messages (also by pasting a screenshot), with an **emoji picker** that adds the emoji where your cursor is. Pictures open big; other files are always downloaded, never opened in the browser.
+- **Your own messages** get a thin orange bar on the left. Hovering adds a grey background instead, so the two marks never mix.
+- **Hidden invite codes:** shown as •••••• until you press Show, and they hide again after 20 seconds. Copying works without showing them.
+- **Resizable side panels:** drag the edges, or use the arrow keys on them. Widths are remembered, and double-click resets them.
+- **The message box** only shows a (thin) scrollbar once the text is too long, and all scrollbars are thinner now.
+- **👎 and 😡** reactions.
+- **HTTPS mode** (`npm run demo:https`), because phones only allow the microphone on https.
+- **Demo people** got emoji profile pictures (drawn in code, not real photos), and Sara and Noah got display names.
+
+How it was tested:
+
+- **46 unit tests**, including:
+  - Profile pictures must be real photos: an SVG with hidden code is refused.
+  - File names are made safe: `../../notes?.pdf` becomes `.._.._notes_.pdf`.
+  - Files over 1 MB are refused.
+  - Statuses, and call notes with durations.
+- **18 browser tests.** The call test uses Chrome's **fake microphone**, which beeps. It checks that Ada's beep actually travels to Bo and lights up her "talking" ring on his screen. That proves the sound really flows between two browsers, not just that the buttons work. Other tests cover:
+  - muting
+  - leaving
+  - a DM call ringing and being answered
+  - profiles updating for others
+  - status dots
+  - pictures, files and emoji
+  - the own-message marker
+  - dragging the panels and the widths being remembered after a reload
+
+All 18 passed on the first run.
+
+Problems found in the screenshots and fixed:
+
+- The message box showed **two focus outlines** on phones (the box and the text field inside it).
+- The 📞 icon in call notes had **no space** before the text.
+- While building, the AI also caught that the emoji picker would have **moved keyboard focus every time the screen updated**, and fixed it before it showed up.
+
+![A group call](docs/call.png)
+
+## 11. What surprised me
 
 How efficient the AI was, and how well it understood what I meant even when my prompts weren't well structured.
 
-## 11. What I'd add next
+## 12. What I'd add next
 
-- Sending images
-- Voice chat
+- Video and screen sharing in calls
+- Editing and deleting messages
 - Proper accounts so you can log in on a new device
 - Push notifications
-- Hosting it online so people don't need to be on the same network
+- Hosting it online, with a relay server so calls work across different networks

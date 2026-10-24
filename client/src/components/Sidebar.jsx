@@ -1,18 +1,21 @@
-import { dmPartner, formatShort } from '../lib.js';
+import { dmPartner, formatShort, shownName } from '../lib.js';
 import { Avatar, GroupAvatar } from './Avatar.jsx';
-import { LinkIcon, LogOutIcon, PlusIcon, UsersIcon } from './Icons.jsx';
+import { LinkIcon, PlusIcon, SpeakerIcon, UsersIcon } from './Icons.jsx';
 import Logo from './Logo.jsx';
 
-function preview(group) {
+function preview(group, people) {
   const last = group.messages.at(-1);
   if (!last) return 'No messages yet';
   if (last.type === 'system') return last.text;
-  return `${last.name}: ${last.text}`;
+  const body = last.text || (last.attachment?.kind === 'image' ? '📷 Picture' : `📎 ${last.attachment?.name ?? 'File'}`);
+  return `${shownName(people[last.userId] ?? last)}: ${body}`;
 }
 
-function ChatItem({ group, me, active, count, onlineIds, onSelect }) {
-  const partner = group.type === 'dm' ? dmPartner(group, me.id) : null;
+function ChatItem({ group, me, people, active, count, call, onlineIds, onSelect }) {
+  const partnerInfo = group.type === 'dm' ? dmPartner(group, me.id) : null;
+  const partner = partnerInfo ? (people[partnerInfo.id] ?? partnerInfo) : null;
   const last = group.messages.at(-1);
+  const inCall = call?.participants.length ?? 0;
 
   return (
     <button
@@ -27,11 +30,17 @@ function ChatItem({ group, me, active, count, onlineIds, onSelect }) {
       )}
       <span className="group-item-text">
         <span className="group-item-top">
-          <span className="group-item-name">{partner ? partner.name : group.name}</span>
-          {last && <span className="group-item-time">{formatShort(last.ts)}</span>}
+          <span className="group-item-name">{partner ? shownName(partner) : group.name}</span>
+          {inCall > 0 ? (
+            <span className="call-indicator" aria-label={`${inCall} in a call`} title="Call in progress">
+              <SpeakerIcon size={14} /> {inCall}
+            </span>
+          ) : (
+            last && <span className="group-item-time">{formatShort(last.ts)}</span>
+          )}
         </span>
         <span className="group-item-bottom">
-          <span className="group-item-preview">{preview(group)}</span>
+          <span className="group-item-preview">{preview(group, people)}</span>
           {count > 0 && (
             <span className="badge" aria-label={`${count} unread`}>
               {count > 99 ? '99+' : count}
@@ -45,25 +54,30 @@ function ChatItem({ group, me, active, count, onlineIds, onSelect }) {
 
 export default function Sidebar({
   me,
+  people,
   dms,
   groups,
+  calls,
   activeId,
   unread,
   onlineIds,
   requestCount,
+  footer,
+  resizer,
   onSelect,
   onFriends,
   onNew,
   onJoin,
-  onSignOut,
 }) {
   const item = (group) => (
     <ChatItem
       key={group.id}
       group={group}
       me={me}
+      people={people}
       active={group.id === activeId}
       count={unread[group.id]}
+      call={calls[group.id]}
       onlineIds={onlineIds}
       onSelect={onSelect}
     />
@@ -74,12 +88,6 @@ export default function Sidebar({
       <header className="sidebar-header">
         <Logo size={32} />
         <span className="brand">Gjeng</span>
-        <div className="me" title={`Signed in as ${me.name}`}>
-          <Avatar user={me} size={32} />
-          <button className="icon-button" aria-label="Sign out" title="Sign out" onClick={onSignOut}>
-            <LogOutIcon />
-          </button>
-        </div>
       </header>
 
       <div className="sidebar-actions">
@@ -118,6 +126,9 @@ export default function Sidebar({
         {groups.map(item)}
         {groups.length === 0 && <p className="empty-hint">No groups yet. Create one, or join with a code from a friend.</p>}
       </nav>
+
+      {footer}
+      {resizer}
     </aside>
   );
 }

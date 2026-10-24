@@ -5,21 +5,35 @@ import { Store } from './store.js';
 
 const MINUTE = 60 * 1000;
 
+// A profile picture drawn in code: an emoji on a colour gradient. No real photos.
+function emojiPicture(emoji, from, to) {
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+    `<defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>` +
+    '<rect width="100" height="100" fill="url(#g)"/>' +
+    `<text x="50" y="56" font-size="54" text-anchor="middle" dominant-baseline="middle">${emoji}</text></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+// [key, username, colour, display name, picture]. Some have neither, to show the plain initials too.
 const PEOPLE = [
-  ['emma', 'Emma', 0],
-  ['jonas', 'Jonas', 4],
-  ['sara', 'Sara', 2],
-  ['ola', 'Ola', 6],
-  ['noah', 'Noah', 1],
-  ['ingrid', 'Ingrid', 3],
-  ['maja', 'Maja', 7],
+  ['emma', 'Emma', 0, null, emojiPicture('🏋️', '#ffb37a', '#e8590c')],
+  ['jonas', 'Jonas', 4, null, emojiPicture('🎸', '#74c0fc', '#1c7ed6')],
+  ['sara', 'Sara', 2, 'Sara ✨', emojiPicture('🦊', '#e599f7', '#ae3ec9')],
+  ['ola', 'Ola', 6, null, emojiPicture('🚲', '#8ce99a', '#2f9e44')],
+  ['noah', 'Noah', 1, 'Noah H.', null],
+  ['ingrid', 'Ingrid', 3, null, null],
+  ['maja', 'Maja', 7, null, null],
 ];
 
 export function seedDemo(store = new Store()) {
   const p = {};
-  for (const [key, name, colour] of PEOPLE) {
+  for (const [key, name, colour, displayName, picture] of PEOPLE) {
     p[key] = store.upsertUser({ id: `demo-${key}-0000`, name, color: COLORS[colour] });
     p[key].demo = true;
+    if (displayName) p[key].displayName = displayName;
+    // Set directly: uploads only accept real photos, but these are our own drawings.
+    if (picture) p[key].avatar = picture;
   }
 
   const befriend = (a, b) => {

@@ -22,6 +22,12 @@ async function createGroup(page, name) {
   await page.getByLabel('Group name').fill(name);
   await page.getByRole('button', { name: 'Create group' }).click();
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  return readInviteCode(page);
+}
+
+// Invite codes are hidden until you press Show.
+async function readInviteCode(page) {
+  await page.locator('.chat-header').getByRole('button', { name: 'Show invite code' }).click();
   return (await page.getByTestId('invite-code').textContent()).trim();
 }
 

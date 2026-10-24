@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { shownName } from '../lib.js';
 import { Avatar } from './Avatar.jsx';
 import Modal from './Modal.jsx';
 
@@ -11,7 +12,7 @@ export default function AddMembersModal({ group, friends, onlineIds, onAdd, onCl
   const inGroup = new Set(group.members.map((m) => m.id));
   const candidates = friends
     .filter((f) => !inGroup.has(f.id) || added.has(f.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => shownName(a).localeCompare(shownName(b)));
 
   async function add(friend) {
     setBusyId(friend.id);
@@ -39,14 +40,14 @@ export default function AddMembersModal({ group, friends, onlineIds, onAdd, onCl
             <li key={friend.id} className="person">
               <Avatar user={friend} size={36} online={onlineIds.has(friend.id)} />
               <span className="person-text">
-                <span className="person-name">{friend.name}</span>
+                <span className="person-name">{shownName(friend)}</span>
               </span>
               {added.has(friend.id) ? (
                 <span className="member-note">Added ✓</span>
               ) : (
                 <button
                   className="button primary small"
-                  aria-label={`Add ${friend.name} to the group`}
+                  aria-label={`Add ${shownName(friend)} to the group`}
                   disabled={busyId === friend.id}
                   onClick={() => add(friend)}
                 >

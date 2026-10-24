@@ -17,6 +17,7 @@
   --danger: #c92a2a;
   --danger-soft: #fdecec;
   --online: #2f9e44;
+  --away: #e8a400;
   --shadow: 0 12px 40px rgb(34 32 28 / 0.16);
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
@@ -39,6 +40,7 @@
     --danger: #ff6b6b;
     --danger-soft: #3a1c1c;
     --online: #51cf66;
+    --away: #fcc419;
     --shadow: 0 12px 40px rgb(0 0 0 / 0.5);
   }
 }
@@ -241,8 +243,19 @@ legend {
   background: var(--muted);
 }
 
-.presence-dot.online {
+.presence-dot.online,
+.status-dot.online {
   background: var(--online);
+}
+
+.presence-dot.away,
+.status-dot.away {
+  background: var(--away);
+}
+
+.presence-dot.dnd,
+.status-dot.dnd {
+  background: var(--danger);
 }
 
 .logo {
@@ -408,22 +421,25 @@ legend {
 
 /* ---------- App layout ---------- */
 
+/* The side panels' widths come from the drag handles (set on .app), but never take over a small window. */
 .app {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: min(var(--sidebar-width, 320px), 45vw) minmax(0, 1fr);
   height: 100vh;
   height: 100dvh;
 }
 
 .app.members-open {
-  grid-template-columns: 320px minmax(0, 1fr) 270px;
+  grid-template-columns: min(var(--sidebar-width, 320px), 35vw) minmax(0, 1fr) min(var(--members-width, 270px), 35vw);
 }
 
 /* ---------- Sidebar ---------- */
 
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   border-right: 1px solid var(--border);
   background: var(--sidebar);
@@ -669,7 +685,19 @@ legend {
   color: var(--muted);
 }
 
-.system-message::before {
+/* Call notes get a green phone instead of the arrow. */
+.system-message.call {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.system-message.call svg {
+  flex: none;
+  color: #23a55a;
+}
+
+.system-message:not(.call)::before {
   content: '→';
   margin-right: 8px;
   color: var(--accent);
@@ -905,12 +933,40 @@ legend {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-.composer textarea {
+/* The text box and its buttons look like one rounded field. */
+.composer-box {
+  display: flex;
   flex: 1;
+  align-items: flex-end;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* The whole box shows focus, so the text field inside doesn't need its own outline. */
+.composer-box textarea:focus-visible {
+  outline: none;
+}
+
+.composer-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composer-box textarea,
+.composer-box textarea:focus {
+  flex: 1;
+  min-width: 0;
   max-height: 160px;
-  border-radius: 20px;
-  padding: 11px 16px;
+  padding: 11px 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   line-height: 1.35;
+  overflow-y: hidden;
   resize: none;
 }
 
@@ -942,14 +998,22 @@ legend {
 /* ---------- Members panel ---------- */
 
 .members-panel {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  min-width: 0;
   min-height: 0;
-  padding: 12px 12px 16px;
-  overflow-y: auto;
   border-left: 1px solid var(--border);
   background: var(--sidebar);
+}
+
+.members-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 12px 16px;
+  overflow-y: auto;
 }
 
 .members-header {
@@ -1336,12 +1400,736 @@ legend {
   }
 }
 
+/* ---------- Scrollbars ---------- */
+
+/* Thin and quiet, and only where something actually scrolls. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+}
+
+/* ---------- Pictures ---------- */
+
+.avatar img,
+.mini-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+}
+
+/* ---------- Your own messages ---------- */
+
+/* A thin accent bar on the left. Hovering adds a background instead, so the two never look alike. */
+.message.own {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+/* ---------- Message box: emoji and attachments ---------- */
+
+.composer-area {
+  position: relative;
+}
+
+.composer-tool {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 42px;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+
+.composer-tool:hover,
+.composer-tool.pressed {
+  color: var(--accent);
+}
+
+.emoji-anchor {
+  position: relative;
+  display: flex;
+}
+
+.emoji-picker {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 15;
+  display: grid;
+  grid-template-columns: repeat(8, 36px);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: pop-in 0.15s;
+}
+
+.emoji-picker button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 20px;
+}
+
+.emoji-picker button:hover,
+.emoji-picker button:focus-visible {
+  background: var(--hover);
+}
+
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 16px 6px;
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.attachment-preview img,
+.attachment-preview-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+  object-fit: cover;
+}
+
+.attachment-preview-text,
+.attachment-file-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.attachment-preview-name,
+.attachment-file-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Pictures and files in messages ---------- */
+
+.attachment-image {
+  display: block;
+  max-width: min(360px, 100%);
+  margin-top: 6px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  cursor: zoom-in;
+}
+
+.attachment-image img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.attachment-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(340px, 100%);
+  margin-top: 6px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.attachment-file:hover {
+  border-color: var(--accent);
+}
+
+.attachment-file > svg:first-child {
+  flex: none;
+  color: var(--accent);
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: rgb(0 0 0 / 0.85);
+  cursor: zoom-out;
+  animation: fade-in 0.15s;
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: calc(100vh - 110px);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.lightbox .button {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* ---------- Hidden invite codes ---------- */
+
+.secret-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.secret-value {
+  min-width: 6.5ch;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.secret-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.secret-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.secret-code.big {
+  margin: 10px 0 6px;
+  padding: 6px 6px 6px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.secret-code.big .secret-value {
+  font-size: 20px;
+  letter-spacing: 0.15em;
+}
+
+.secret-code.big .secret-button {
+  color: var(--accent);
+}
+
+/* ---------- Calls ---------- */
+
+/* A dark band at the top of the chat in both themes, like Discord's call area. */
+.call-stage {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 16px 20px 18px;
+  border-bottom: 1px solid #000;
+  background: linear-gradient(180deg, #121316, #1b1d22);
+  color: #e3e5e8;
+}
+
+.call-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b5bac1;
+}
+
+.call-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #23a55a;
+  box-shadow: 0 0 0 4px rgb(35 165 90 / 0.25);
+}
+
+.call-timer {
+  font-variant-numeric: tabular-nums;
+  color: #80848e;
+}
+
+.call-participants {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px 26px;
+  max-height: 260px;
+  margin: 0;
+  padding: 8px 8px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.call-bubble {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 96px;
+}
+
+.call-avatar {
+  position: relative;
+  display: inline-grid;
+  border-radius: 50%;
+  transition: box-shadow 0.12s;
+}
+
+.call-avatar .avatar {
+  font-size: 30px;
+  transition: filter 0.2s;
+}
+
+/* Talking: a green ring around the picture. */
+.call-bubble.speaking .call-avatar {
+  box-shadow:
+    0 0 0 3px #1b1d22,
+    0 0 0 6px #23a55a,
+    0 0 22px rgb(35 165 90 / 0.55);
+}
+
+/* Muted or deafened: the whole picture goes dark, not just the little icon. */
+.call-bubble.muted .call-avatar .avatar {
+  filter: grayscale(0.75) brightness(0.45);
+}
+
+.call-badge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 3px solid #1b1d22;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.call-badge.talking {
+  top: -2px;
+  right: -2px;
+  background: #23a55a;
+}
+
+.call-badge.off {
+  right: -2px;
+  bottom: -2px;
+  background: #da373c;
+}
+
+.call-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-bubble.muted .call-name {
+  color: #80848e;
+}
+
+.call-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.call-button {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: #2b2d31;
+  color: #f2f3f5;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.call-button:hover {
+  background: #3a3c42;
+}
+
+.call-button:active {
+  transform: scale(0.94);
+}
+
+.call-button.off {
+  background: #f2f3f5;
+  color: #da373c;
+}
+
+.call-button.hang-up {
+  background: #da373c;
+  color: #fff;
+}
+
+.call-button.hang-up:hover {
+  background: #b92f33;
+}
+
+.call-button.answer {
+  background: #23a55a;
+  color: #fff;
+}
+
+.call-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 999px;
+  background: #23a55a;
+  color: #fff;
+  font-weight: 700;
+}
+
+.call-join:hover {
+  background: #1f9150;
+}
+
+.call-warning {
+  max-width: 420px;
+  font-size: 12px;
+  color: #f0b232;
+  text-align: center;
+}
+
+.icon-button.live {
+  color: #23a55a;
+}
+
+.icon-button.danger {
+  color: var(--danger);
+}
+
+.call-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #23a55a;
+}
+
+.incoming-call {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 18px;
+  background: #1b1d22;
+  color: #e3e5e8;
+  box-shadow: 0 16px 50px rgb(0 0 0 / 0.45);
+  animation: pop-in 0.2s;
+}
+
+.incoming-call .avatar {
+  animation: ring 1.4s infinite;
+}
+
+.incoming-call-text {
+  display: grid;
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.incoming-call-text span {
+  color: #b5bac1;
+}
+
+.incoming-call .call-button {
+  width: 42px;
+  height: 42px;
+}
+
+.incoming-call .hang-up svg {
+  transform: rotate(135deg);
+}
+
+@keyframes ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(35 165 90 / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgb(35 165 90 / 0);
+  }
+}
+
+/* ---------- You, bottom-left ---------- */
+
+.user-panel {
+  position: relative;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--sidebar) 70%, var(--surface-2));
+}
+
+.voice-connected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 0 14px;
+}
+
+.voice-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.voice-text strong {
+  color: #23a55a;
+  font-size: 13px;
+}
+
+.voice-text span {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hang-up-small:hover {
+  color: var(--danger);
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px;
+}
+
+.me-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 8px 4px 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+}
+
+.me-button:hover,
+.me-button[aria-expanded="true"] {
+  background: var(--hover);
+}
+
+.me-text {
+  display: grid;
+  min-width: 0;
+}
+
+.me-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.me-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status-menu {
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 8px;
+  z-index: 20;
+  display: grid;
+  width: 220px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: pop-in 0.15s;
+}
+
+.status-menu hr {
+  width: 100%;
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.status-option:hover {
+  background: var(--hover);
+}
+
+.status-option[aria-checked="true"] {
+  font-weight: 700;
+}
+
+/* ---------- Profile ---------- */
+
+.profile-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.profile-top .avatar {
+  font-size: 32px;
+}
+
+.profile-top-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-name {
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-picture-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.modal-actions.spread {
+  justify-content: space-between;
+}
+
+.form-error-text {
+  color: var(--danger);
+}
+
+.person-handle {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* ---------- Resizing the panels ---------- */
+
+.resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resizer.right {
+  right: -5px;
+}
+
+.resizer.left {
+  left: -5px;
+}
+
+/* A thin line shows up when you point at the handle or drag it. */
+.resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.resizer:hover::after,
+.resizer:focus-visible::after,
+body.resizing .resizer::after {
+  opacity: 0.7;
+}
+
+.resizer:focus-visible {
+  outline: none;
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
 /* ---------- Smaller screens ---------- */
 
 /* Members panel slides over the chat instead of taking a column. */
 @media (max-width: 1100px) {
   .app.members-open {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: min(var(--sidebar-width, 320px), 45vw) minmax(0, 1fr);
   }
 
   .members-panel {
@@ -1401,5 +2189,24 @@ legend {
 
   .members-panel {
     width: 100%;
+  }
+
+  /* No resizing on a phone, and the invite code lives in the member list instead of the header. */
+  .resizer,
+  .chat-header .secret-code {
+    display: none;
+  }
+
+  .call-participants {
+    gap: 14px 18px;
+  }
+
+  .incoming-call {
+    right: 12px;
+    left: 12px;
+  }
+
+  .emoji-picker {
+    grid-template-columns: repeat(7, 36px);
   }
 }

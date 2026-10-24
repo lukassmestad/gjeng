@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-import { formatDay, formatTime, REACTIONS } from '../lib.js';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { formatBytes, formatDay, formatTime, REACTIONS, shownName } from '../lib.js';
 import { Avatar } from './Avatar.jsx';
+import { DownloadIcon, FileIcon, PhoneIcon } from './Icons.jsx';
 
 // Messages from the same person within this time are shown as one block.
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -8,26 +9,54 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 // On touch screens there's no hover, so tapping a message opens the reaction bar instead.
 const isTouch = () => window.matchMedia('(hover: none)').matches;
 
-function Message({ message, continued, meId, nameOf, picking, onPick, onReact }) {
+function Attachment({ attachment, onOpenImage, onLoad }) {
+  if (attachment.kind === 'image') {
+    const { width, height } = attachment;
+    return (
+      <button type="button" className="attachment-image" onClick={() => onOpenImage(attachment)} aria-label={`Open picture ${attachment.name}`}>
+        <img
+          src={attachment.url}
+          alt={attachment.name}
+          loading="lazy"
+          onLoad={onLoad}
+          style={width && height ? { aspectRatio: `${width} / ${height}` } : undefined}
+        />
+      </button>
+    );
+  }
+  return (
+    <a className="attachment-file" href={attachment.url} download={attachment.name}>
+      <FileIcon />
+      <span className="attachment-file-text">
+        <span className="attachment-file-name">{attachment.name}</span>
+        <span className="hint">{formatBytes(attachment.size)}</span>
+      </span>
+      <DownloadIcon />
+    </a>
+  );
+}
+
+function Message({ message, author, mine, continued, meId, nameOf, picking, onPick, onReact, onOpenImage, onMediaLoad }) {
   const reactions = Object.entries(message.reactions ?? {});
   const time = <time dateTime={new Date(message.ts).toISOString()}>{formatTime(message.ts)}</time>;
 
   return (
     <div
-      className={`message ${continued ? 'continued' : ''} ${picking ? 'picking' : ''}`}
-      onClick={(e) => !e.target.closest('button') && onPick()}
+      className={`message ${mine ? 'own' : ''} ${continued ? 'continued' : ''} ${picking ? 'picking' : ''}`}
+      onClick={(e) => !e.target.closest('button, a') && onPick()}
     >
       <div className="message-gutter">
-        {continued ? <span className="gutter-time">{time}</span> : <Avatar user={message} size={40} />}
+        {continued ? <span className="gutter-time">{time}</span> : <Avatar user={author} size={40} />}
       </div>
       <div className="message-body">
         {!continued && (
           <div className="message-meta">
-            <span className="message-author">{message.name}</span>
+            <span className="message-author">{shownName(author)}</span>
             {time}
           </div>
         )}
-        <div className="message-text">{message.text}</div>
+        {message.text && <div className="message-text">{message.text}</div>}
+        {message.attachment && <Attachment attachment={message.attachment} onOpenImage={onOpenImage} onLoad={onMediaLoad} />}
         {reactions.length > 0 && (
           <div className="reactions">
             {reactions.map(([emoji, userIds]) => (
@@ -55,10 +84,29 @@ function Message({ message, continued, meId, nameOf, picking, onPick, onReact })
   );
 }
 
-export default function MessageList({ group, me, onReact, footer }) {
+// A picture shown big over everything. Click anywhere or press Escape to close.
+function Lightbox({ image, onClose }) {
+  useEffect(() => {
+    const escape = (event) => event.key === 'Escape' && onClose();
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [onClose]);
+
+  return (
+    <div className="lightbox" role="dialog" aria-label={image.name} onClick={onClose}>
+      <img src={image.url} alt={image.name} />
+      <a className="button small" href={image.url} download={image.name} onClick={(e) => e.stopPropagation()}>
+        <DownloadIcon /> Download
+      </a>
+    </div>
+  );
+}
+
+export default function MessageList({ group, me, people, onReact, footer }) {
   const listRef = useRef(null);
   const stickToBottom = useRef(true);
   const [pickingId, setPickingId] = useState(null);
+  const [openImage, setOpenImage] = useState(null);
   const { messages } = group;
   const last = messages.at(-1);
 
@@ -70,19 +118,22 @@ export default function MessageList({ group, me, onReact, footer }) {
   // Follow new messages and reactions, unless you've scrolled up to read older ones.
   // Runs after every render, because reactions also make the list taller.
   useLayoutEffect(() => {
+    followBottom();
+  });
+
+  function followBottom() {
     const list = listRef.current;
     if (stickToBottom.current) list.scrollTop = list.scrollHeight;
-  });
+  }
 
   function onScroll() {
     const list = listRef.current;
     stickToBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   }
 
-  // Names for the reaction tooltips, including people who have since left the group.
-  const names = Object.fromEntries(group.members.map((m) => [m.id, m.name]));
-  for (const m of messages) if (m.type === 'user' && !names[m.userId]) names[m.userId] = m.name;
-  const nameOf = (id) => names[id] ?? 'Someone';
+  // Current names and pictures, falling back to what was saved with the message for people who left.
+  const authorOf = (m) => people[m.userId] ?? { id: m.userId, name: m.name, color: m.color };
+  const nameOf = (id) => shownName(people[id] ?? messages.find((m) => m.userId === id));
 
   const items = [];
   let prev = null;
@@ -99,7 +150,8 @@ export default function MessageList({ group, me, onReact, footer }) {
 
     if (message.type === 'system') {
       items.push(
-        <div key={message.id} className="system-message">
+        <div key={message.id} className={`system-message ${message.kind ?? ''}`}>
+          {message.kind === 'call' && <PhoneIcon size={14} />}
           {message.text}
         </div>,
       );
@@ -110,6 +162,8 @@ export default function MessageList({ group, me, onReact, footer }) {
         <Message
           key={message.id}
           message={message}
+          author={authorOf(message)}
+          mine={message.userId === me.id}
           continued={continued}
           meId={me.id}
           nameOf={nameOf}
@@ -119,6 +173,8 @@ export default function MessageList({ group, me, onReact, footer }) {
             setPickingId(null);
             onReact(messageId, emoji);
           }}
+          onOpenImage={setOpenImage}
+          onMediaLoad={followBottom}
         />,
       );
     }
@@ -126,9 +182,12 @@ export default function MessageList({ group, me, onReact, footer }) {
   }
 
   return (
-    <div className="message-list" ref={listRef} onScroll={onScroll} role="log" aria-label="Messages">
-      {items}
-      {footer}
-    </div>
+    <>
+      <div className="message-list" ref={listRef} onScroll={onScroll} role="log" aria-label="Messages">
+        {items}
+        {footer}
+      </div>
+      {openImage && <Lightbox image={openImage} onClose={() => setOpenImage(null)} />}
+    </>
   );
 }

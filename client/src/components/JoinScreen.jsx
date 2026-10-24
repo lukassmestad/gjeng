@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { COLORS, LIMITS, makeId, USERNAME_PATTERN, USERNAME_RULES } from '../lib.js';
+import { COLORS, LIMITS, makeId, shownName, USERNAME_PATTERN, USERNAME_RULES } from '../lib.js';
 import { Avatar } from './Avatar.jsx';
 import Logo from './Logo.jsx';
 
@@ -113,9 +113,9 @@ export default function JoinScreen({ onJoin }) {
             <p className="demo-title">Or jump in as someone from the demo</p>
             <div className="demo-list">
               {demoUsers.map((user) => (
-                <button key={user.id} className="demo-user" onClick={() => onJoin(user)} aria-label={`Jump in as ${user.name}`}>
+                <button key={user.id} className="demo-user" onClick={() => onJoin(user)} aria-label={`Jump in as ${shownName(user)}`}>
                   <Avatar user={user} size={36} />
-                  <span>{user.name}</span>
+                  <span>{shownName(user)}</span>
                 </button>
               ))}
             </div>

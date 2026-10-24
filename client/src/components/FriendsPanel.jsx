@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { LIMITS, plural } from '../lib.js';
+import { LIMITS, plural, presenceLabel, presenceOf, shownName } from '../lib.js';
 import { Avatar } from './Avatar.jsx';
 import { BackIcon, CopyIcon, UsersIcon } from './Icons.jsx';
 
 const byOnlineThenName = (onlineIds) => (a, b) =>
-  onlineIds.has(b.id) - onlineIds.has(a.id) || a.name.localeCompare(b.name);
+  onlineIds.has(b.id) - onlineIds.has(a.id) || shownName(a).localeCompare(shownName(b));
 
 function Person({ user, online, children, sub }) {
   return (
     <li className="person">
       <Avatar user={user} size={40} online={online} />
       <span className="person-text">
-        <span className="person-name">{user.name}</span>
+        <span className="person-name">
+          {shownName(user)} <span className="person-handle">@{user.name}</span>
+        </span>
         <span className={`person-sub ${sub === 'Online' ? 'online' : ''}`}>{sub}</span>
       </span>
       {children}
@@ -26,7 +28,7 @@ export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyNam
 
   const list = [...friends.friends].sort(byOnlineThenName(onlineIds));
   const onlineCount = list.filter((f) => onlineIds.has(f.id)).length;
-  const status = (user) => (onlineIds.has(user.id) ? 'Online' : 'Offline');
+  const status = (user) => presenceLabel(presenceOf(user, onlineIds.has(user.id)));
 
   async function add(event) {
     event.preventDefault();
@@ -121,10 +123,10 @@ export default function FriendsPanel({ me, friends, onlineIds, onBack, onCopyNam
             <ul className="person-list">
               {list.map((user) => (
                 <Person key={user.id} user={user} online={onlineIds.has(user.id)} sub={status(user)}>
-                  <button className="button primary small" aria-label={`Message ${user.name}`} onClick={() => onMessage(user.id)}>
+                  <button className="button primary small" aria-label={`Message ${shownName(user)}`} onClick={() => onMessage(user.id)}>
                     Message
                   </button>
-                  <button className="button small quiet" aria-label={`Remove ${user.name}`} onClick={() => onRemove(user)}>
+                  <button className="button small quiet" aria-label={`Remove ${shownName(user)}`} onClick={() => onRemove(user)}>
                     Remove friend
                   </button>
                 </Person>

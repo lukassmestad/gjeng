@@ -1,12 +1,14 @@
-import { plural } from '../lib.js';
+import { plural, shownName } from '../lib.js';
 import { Avatar, GroupAvatar } from './Avatar.jsx';
-import { CopyIcon, PlusIcon, XIcon } from './Icons.jsx';
+import { PlusIcon, XIcon } from './Icons.jsx';
+import SecretCode from './SecretCode.jsx';
 
 // The button next to someone depends on how you know them.
 function FriendAction({ member, relation, onAddFriend, onRespond, onMessage }) {
+  const name = shownName(member);
   if (relation === 'friend') {
     return (
-      <button className="button small" aria-label={`Message ${member.name}`} onClick={() => onMessage(member.id)}>
+      <button className="button small" aria-label={`Message ${name}`} onClick={() => onMessage(member.id)}>
         Message
       </button>
     );
@@ -14,13 +16,13 @@ function FriendAction({ member, relation, onAddFriend, onRespond, onMessage }) {
   if (relation === 'outgoing') return <span className="member-note">Request sent</span>;
   if (relation === 'incoming') {
     return (
-      <button className="button primary small" aria-label={`Accept ${member.name}`} onClick={() => onRespond(member.id, true)}>
+      <button className="button primary small" aria-label={`Accept ${name}`} onClick={() => onRespond(member.id, true)}>
         Accept
       </button>
     );
   }
   return (
-    <button className="button small" aria-label={`Add ${member.name} as friend`} onClick={() => onAddFriend(member.id)}>
+    <button className="button small" aria-label={`Add ${name} as friend`} onClick={() => onAddFriend(member.id)}>
       Add friend
     </button>
   );
@@ -32,6 +34,7 @@ export default function MembersPanel({
   me,
   friends,
   onlineIds,
+  resizer,
   onClose,
   onCopyCode,
   onLeave,
@@ -40,7 +43,7 @@ export default function MembersPanel({
   onMessage,
   onAddMembers,
 }) {
-  const sorted = [...group.members].sort((a, b) => a.name.localeCompare(b.name));
+  const sorted = [...group.members].sort((a, b) => shownName(a).localeCompare(shownName(b)));
   const online = sorted.filter((m) => onlineIds.has(m.id));
   const offline = sorted.filter((m) => !onlineIds.has(m.id));
 
@@ -57,7 +60,7 @@ export default function MembersPanel({
       <li key={member.id} className={`member ${isOnline ? '' : 'offline'}`}>
         <Avatar user={member} size={34} online={isOnline} />
         <span className="member-name">
-          {member.name}
+          {shownName(member)}
           {member.id === me.id && <span className="you"> (you)</span>}
         </span>
         {member.id !== me.id && (
@@ -75,47 +78,47 @@ export default function MembersPanel({
 
   return (
     <aside className="members-panel" aria-label="Members">
-      <header className="members-header">
-        <h2>Members</h2>
-        <button className="icon-button" aria-label="Close members" onClick={onClose}>
-          <XIcon />
-        </button>
-      </header>
+      {resizer}
+      <div className="members-scroll">
+        <header className="members-header">
+          <h2>Members</h2>
+          <button className="icon-button" aria-label="Close members" onClick={onClose}>
+            <XIcon />
+          </button>
+        </header>
 
-      <div className="members-hero">
-        <GroupAvatar group={group} size={80} />
-        <p className="members-hero-name">{group.name}</p>
-        <p className="hint">{plural(group.members.length, 'member')}</p>
-        <button className="button primary small" onClick={onAddMembers}>
-          <PlusIcon /> Add friends
+        <div className="members-hero">
+          <GroupAvatar group={group} size={80} />
+          <p className="members-hero-name">{group.name}</p>
+          <p className="hint">{plural(group.members.length, 'member')}</p>
+          <button className="button primary small" onClick={onAddMembers}>
+            <PlusIcon /> Add friends
+          </button>
+        </div>
+
+        {online.length > 0 && (
+          <section aria-label="Online members">
+            <h3 className="section-title">Online — {online.length}</h3>
+            <ul className="member-list">{online.map(row)}</ul>
+          </section>
+        )}
+        {offline.length > 0 && (
+          <section aria-label="Offline members">
+            <h3 className="section-title">Offline — {offline.length}</h3>
+            <ul className="member-list">{offline.map(row)}</ul>
+          </section>
+        )}
+
+        <div className="invite-box">
+          <p className="invite-box-label">Invite code</p>
+          <SecretCode code={group.code} onCopy={onCopyCode} size="big" />
+          <p className="hint">Friends tap "Join with code" and type this in.</p>
+        </div>
+
+        <button className="button danger" onClick={onLeave}>
+          Leave group
         </button>
       </div>
-
-      {online.length > 0 && (
-        <section aria-label="Online members">
-          <h3 className="section-title">Online — {online.length}</h3>
-          <ul className="member-list">{online.map(row)}</ul>
-        </section>
-      )}
-      {offline.length > 0 && (
-        <section aria-label="Offline members">
-          <h3 className="section-title">Offline — {offline.length}</h3>
-          <ul className="member-list">{offline.map(row)}</ul>
-        </section>
-      )}
-
-      <div className="invite-box">
-        <p className="invite-box-label">Invite code</p>
-        <button className="code-big" onClick={() => onCopyCode(group.code)}>
-          {group.code}
-          <CopyIcon />
-        </button>
-        <p className="hint">Friends tap "Join with code" and type this in.</p>
-      </div>
-
-      <button className="button danger" onClick={onLeave}>
-        Leave group
-      </button>
     </aside>
   );
 }

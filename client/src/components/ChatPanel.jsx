@@ -1,15 +1,21 @@
-import { dmPartner, formatTypers, plural } from '../lib.js';
+import { dmPartner, formatTypers, plural, presenceLabel, presenceOf, shownName } from '../lib.js';
 import { Avatar, GroupAvatar } from './Avatar.jsx';
+import CallStage from './CallStage.jsx';
 import Composer from './Composer.jsx';
-import { BackIcon, CopyIcon, UsersIcon } from './Icons.jsx';
+import { BackIcon, PhoneIcon, UsersIcon } from './Icons.jsx';
 import MessageList from './MessageList.jsx';
+import SecretCode from './SecretCode.jsx';
 
 export default function ChatPanel({
   group,
   me,
+  people,
   onlineIds,
   typingNames,
   membersOpen,
+  call,
+  voice,
+  socketId,
   onBack,
   onToggleMembers,
   onCopyCode,
@@ -17,29 +23,33 @@ export default function ChatPanel({
   onTyping,
   onReact,
   onError,
+  onJoinCall,
+  onLeaveCall,
+  onToggleMute,
+  onToggleDeafen,
 }) {
-  const partner = group.type === 'dm' ? dmPartner(group, me.id) : null;
-  const title = partner ? partner.name : group.name;
+  const partnerInfo = group.type === 'dm' ? dmPartner(group, me.id) : null;
+  const partner = partnerInfo ? (people[partnerInfo.id] ?? partnerInfo) : null;
+  const title = partner ? shownName(partner) : group.name;
   const onlineCount = group.members.filter((m) => onlineIds.has(m.id)).length;
+  const inThisCall = voice.groupId === group.id;
+  const callActive = Boolean(call?.participants.length);
 
   let footer = null;
   if (partner && group.messages.length === 0) {
     footer = (
       <div className="invite-card">
         <Avatar user={partner} size={56} />
-        <p className="invite-card-title">{partner.name}</p>
-        <p>This is the start of your direct messages with {partner.name}.</p>
+        <p className="invite-card-title">{shownName(partner)}</p>
+        <p>This is the start of your direct messages with {shownName(partner)}.</p>
       </div>
     );
   } else if (!partner && group.members.length === 1) {
     footer = (
       <div className="invite-card">
         <p className="invite-card-title">It's just you here so far</p>
-        <p>Share this invite code with your friends. They join with "Join with code".</p>
-        <button className="code-big" onClick={() => onCopyCode(group.code)}>
-          {group.code}
-          <CopyIcon />
-        </button>
+        <p>Add friends from the member list, or share the invite code. It stays hidden until you show it.</p>
+        <SecretCode code={group.code} onCopy={onCopyCode} size="big" />
       </div>
     );
   }
@@ -59,31 +69,48 @@ export default function ChatPanel({
           <h1>{title}</h1>
           <p>
             {partner
-              ? onlineIds.has(partner.id)
-                ? 'Online'
-                : 'Offline'
+              ? presenceLabel(presenceOf(partner, onlineIds.has(partner.id)))
               : `${plural(group.members.length, 'member')} · ${onlineCount} online`}
           </p>
         </div>
+        {!partner && <SecretCode code={group.code} onCopy={onCopyCode} />}
+        <button
+          className={`icon-button ${inThisCall ? 'pressed live' : ''}`}
+          aria-label={inThisCall ? 'In call' : callActive ? 'Join call' : 'Start call'}
+          title={inThisCall ? "You're in this call" : callActive ? 'Join call' : 'Start a voice call'}
+          disabled={inThisCall}
+          onClick={onJoinCall}
+        >
+          <PhoneIcon />
+        </button>
         {!partner && (
-          <>
-            <button className="code-chip" title="Copy invite code" onClick={() => onCopyCode(group.code)}>
-              <CopyIcon />
-              <span data-testid="invite-code">{group.code}</span>
-            </button>
-            <button
-              className={`icon-button ${membersOpen ? 'pressed' : ''}`}
-              aria-label="Members"
-              aria-pressed={membersOpen}
-              onClick={onToggleMembers}
-            >
-              <UsersIcon />
-            </button>
-          </>
+          <button
+            className={`icon-button ${membersOpen ? 'pressed' : ''}`}
+            aria-label="Members"
+            aria-pressed={membersOpen}
+            onClick={onToggleMembers}
+          >
+            <UsersIcon />
+          </button>
         )}
       </header>
 
-      <MessageList group={group} me={me} onReact={onReact} footer={footer} />
+      {(callActive || inThisCall) && (
+        <CallStage
+          call={call}
+          groupId={group.id}
+          voice={voice}
+          me={me}
+          socketId={socketId}
+          people={people}
+          onJoin={onJoinCall}
+          onLeave={onLeaveCall}
+          onToggleMute={onToggleMute}
+          onToggleDeafen={onToggleDeafen}
+        />
+      )}
+
+      <MessageList group={group} me={me} people={people} onReact={onReact} footer={footer} />
 
       <div className="typing" aria-live="polite">
         {typingNames.length > 0 && (

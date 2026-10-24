@@ -1,5 +1,22 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { COLORS, INVITE_CODE_LENGTH, LIMITS, REACTIONS, USERNAME_PATTERN, USERNAME_RULES } from '../shared/constants.js';
+import {
+  ATTACHMENT_MAX_BYTES,
+  AVATAR_MAX_LENGTH,
+  COLORS,
+  DISPLAY_NAME_MAX,
+  INVITE_CODE_LENGTH,
+  LIMITS,
+  REACTIONS,
+  STATUS_VALUES,
+  USERNAME_PATTERN,
+  USERNAME_RULES,
+} from '../shared/constants.js';
+
+// Only real pictures (the browser turns uploads into JPEG), never SVG or anything that could run code.
+const AVATAR_PATTERN = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const IMAGE_PATTERN = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
+const FILE_PATTERN = /^data:([\w.+-]+\/[\w.+-]+)?(?:;[\w-]+=[\w.+-]+)*;base64,([A-Za-z0-9+/=]+)$/;
+const MINUTE = 60 * 1000;
 
 // No 0/O or 1/I, so codes are easy to read out loud.
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -14,8 +31,30 @@ function cleanText(value, max, label) {
   return text;
 }
 
-// What the client gets to see of a user.
-const publicUser = ({ id, name, color }) => ({ id, name, color });
+// What the client gets to see of a user. `name` is the unique username, `displayName` what people see.
+export const publicUser = ({ id, name, displayName, color, avatar, status }) => ({
+  id,
+  name,
+  color,
+  ...(displayName && { displayName }),
+  ...(avatar && { avatar }),
+  ...(status && status !== 'online' && { status }),
+});
+
+export const displayOf = (user) => user.displayName || user.name;
+
+function plural(count, word) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+// "a few seconds", "1 minute", "1 hour 5 minutes"
+function duration(ms) {
+  const minutes = Math.round(ms / MINUTE);
+  if (minutes < 1) return 'a few seconds';
+  if (minutes < 60) return plural(minutes, 'minute');
+  const rest = minutes % 60;
+  return plural(Math.floor(minutes / 60), 'hour') + (rest ? ` ${plural(rest, 'minute')}` : '');
+}
 
 const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
 
@@ -27,21 +66,53 @@ export class Store {
     this.groups = data.groups ?? {};
     this.friends = data.friends ?? {}; // userId -> ids of their friends
     this.requests = data.requests ?? {}; // userId -> ids of people who asked to be their friend
+    this.files = data.files ?? {}; // fileId -> { groupId, mime, name, data } for pictures and files in messages
   }
 
   toJSON() {
-    return { users: this.users, groups: this.groups, friends: this.friends, requests: this.requests };
+    return { users: this.users, groups: this.groups, friends: this.friends, requests: this.requests, files: this.files };
   }
 
+  // Signs someone in. New people are created; people we already know keep the profile saved here,
+  // so an old copy in their browser can't undo a change they made.
   upsertUser({ id, name, color } = {}) {
     if (typeof id !== 'string' || !/^[\w-]{8,64}$/.test(id)) throw new StoreError('Invalid user id.');
+    if (this.users[id]) return this.users[id];
     const user = {
       id,
       name: this.#cleanUsername(name, id),
       color: COLORS.includes(color) ? color : COLORS[0],
     };
-    if (this.users[id]?.demo) user.demo = true;
     this.users[id] = user;
+    return user;
+  }
+
+  // Display name, colour, picture and status. The username can't change, since friends add you by it.
+  updateProfile(userId, { displayName, color, avatar, status } = {}) {
+    const user = this.users[userId];
+    if (status !== undefined) {
+      if (!STATUS_VALUES.includes(status)) throw new StoreError('Unknown status.');
+      if (status === 'online') delete user.status;
+      else user.status = status;
+    }
+    if (displayName !== undefined) {
+      const text = typeof displayName === 'string' ? displayName.trim() : '';
+      if (Array.from(text).length > DISPLAY_NAME_MAX) {
+        throw new StoreError(`Display names can be at most ${DISPLAY_NAME_MAX} characters.`);
+      }
+      if (text) user.displayName = text;
+      else delete user.displayName;
+    }
+    if (color !== undefined) {
+      if (!COLORS.includes(color)) throw new StoreError('Unknown colour.');
+      user.color = color;
+    }
+    if (avatar !== undefined) {
+      if (avatar === null) delete user.avatar;
+      else if (typeof avatar !== 'string' || !AVATAR_PATTERN.test(avatar)) throw new StoreError("That picture can't be used.");
+      else if (avatar.length > AVATAR_MAX_LENGTH) throw new StoreError('That picture is too big.');
+      else user.avatar = avatar;
+    }
     return user;
   }
 
@@ -79,7 +150,7 @@ export class Store {
       createdAt: Date.now(),
     };
     this.groups[group.id] = group;
-    this.#addSystem(group, `${this.users[userId].name} created the group`);
+    this.#addSystem(group, `${displayOf(this.users[userId])} created the group`);
     return group;
   }
 
@@ -89,7 +160,7 @@ export class Store {
     if (!group) throw new StoreError('No group has that invite code.');
     if (group.memberIds.includes(userId)) return { group, isNew: false };
     group.memberIds.push(userId);
-    const message = this.#addSystem(group, `${this.users[userId].name} joined the group`);
+    const message = this.#addSystem(group, `${displayOf(this.users[userId])} joined the group`);
     return { group, isNew: true, message };
   }
 
@@ -98,9 +169,9 @@ export class Store {
     const group = this.#memberGroup(userId, groupId);
     if (group.type === 'dm') throw new StoreError("You can't add people to a direct message.");
     if (!this.areFriends(userId, friendId)) throw new StoreError('You can only add your friends.');
-    if (group.memberIds.includes(friendId)) throw new StoreError(`${this.users[friendId].name} is already in the group.`);
+    if (group.memberIds.includes(friendId)) throw new StoreError(`${displayOf(this.users[friendId])} is already in the group.`);
     group.memberIds.push(friendId);
-    const message = this.#addSystem(group, `${this.users[userId].name} added ${this.users[friendId].name}`);
+    const message = this.#addSystem(group, `${displayOf(this.users[userId])} added ${displayOf(this.users[friendId])}`);
     return { group, message };
   }
 
@@ -112,31 +183,55 @@ export class Store {
       delete this.groups[groupId];
       return { group, deleted: true };
     }
-    const message = this.#addSystem(group, `${this.users[userId].name} left the group`);
+    const message = this.#addSystem(group, `${displayOf(this.users[userId])} left the group`);
     return { group, deleted: false, message };
   }
 
   // --- Messages -------------------------------------------------------------
 
-  addMessage(userId, groupId, text) {
+  // A message has text, an attachment (picture or file), or both.
+  addMessage(userId, groupId, text, attachment) {
     const group = this.#memberGroup(userId, groupId);
     if (group.type === 'dm') {
       const otherId = group.memberIds.find((id) => id !== userId);
       if (!this.areFriends(userId, otherId)) {
-        throw new StoreError(`You're no longer friends with ${this.users[otherId].name}.`);
+        throw new StoreError(`You're no longer friends with ${displayOf(this.users[otherId])}.`);
       }
     }
-    const { name, color } = this.users[userId];
+    const hasText = typeof text === 'string' && text.trim() !== '';
+    const body = hasText || !attachment ? cleanText(text, LIMITS.message, 'Message') : '';
+    const file = attachment ? this.#saveFile(groupId, attachment) : undefined;
+
+    // Name and colour are saved with the message, for when the author has since left the group.
+    const author = this.users[userId];
     return this.#push(group, {
       id: randomUUID(),
       type: 'user',
       userId,
-      name,
-      color,
-      text: cleanText(text, LIMITS.message, 'Message'),
+      name: displayOf(author),
+      color: author.color,
+      text: body,
+      ...(file && { attachment: file }),
       ts: Date.now(),
       reactions: {},
     });
+  }
+
+  // For the download link. Pictures show in the chat; other files are always downloaded, never opened.
+  getFile(fileId) {
+    return this.files[fileId] ?? null;
+  }
+
+  // Calls themselves live on the server only while they're happening; these leave a note in the chat.
+  callStarted(userId, groupId) {
+    const group = this.#memberGroup(userId, groupId);
+    return this.#addSystem(group, `${displayOf(this.users[userId])} started a call`, 'call');
+  }
+
+  callEnded(groupId, ms) {
+    const group = this.groups[groupId];
+    if (!group) return null;
+    return this.#addSystem(group, `Call ended after ${duration(ms)}`, 'call');
   }
 
   toggleReaction(userId, groupId, messageId, emoji) {
@@ -162,14 +257,14 @@ export class Store {
     const target = username !== undefined ? this.findByUsername(username) : this.users[friendId];
     if (!target) throw new StoreError(username !== undefined ? 'No one has that username.' : 'User not found.');
     if (target.id === fromId) throw new StoreError("You can't add yourself.");
-    if (this.areFriends(fromId, target.id)) throw new StoreError(`You're already friends with ${target.name}.`);
+    if (this.areFriends(fromId, target.id)) throw new StoreError(`You're already friends with ${displayOf(target)}.`);
 
     // They already asked us, so asking back means yes.
     if (this.#incoming(fromId).includes(target.id)) {
       this.#befriend(fromId, target.id);
       return { status: 'accepted', user: target };
     }
-    if (this.#incoming(target.id).includes(fromId)) throw new StoreError(`You already sent ${target.name} a request.`);
+    if (this.#incoming(target.id).includes(fromId)) throw new StoreError(`You already sent ${displayOf(target)} a request.`);
     this.requests[target.id] = [...this.#incoming(target.id), fromId];
     return { status: 'sent', user: target };
   }
@@ -252,6 +347,28 @@ export class Store {
     return this.requests[userId] ?? [];
   }
 
+  // Checks an attachment and keeps it apart from the message, which only gets a link to it.
+  #saveFile(groupId, { kind, name, data, width, height } = {}) {
+    const pattern = kind === 'image' ? IMAGE_PATTERN : kind === 'file' ? FILE_PATTERN : null;
+    const match = pattern && typeof data === 'string' ? pattern.exec(data) : null;
+    if (!match) throw new StoreError("That file can't be sent.");
+    const base64 = match[2];
+    const size = Math.floor((base64.length * 3) / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
+    if (size > ATTACHMENT_MAX_BYTES) throw new StoreError(`Files can be at most ${ATTACHMENT_MAX_BYTES / 1_000_000} MB.`);
+
+    const fileName = (typeof name === 'string' ? name.trim().replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_') : '').slice(0, 100);
+    const id = randomUUID();
+    const mime = kind === 'image' ? `image/${match[1]}` : 'application/octet-stream';
+    this.files[id] = { groupId, mime, name: fileName || (kind === 'image' ? 'picture.jpg' : 'file'), data: base64 };
+    return {
+      kind,
+      url: `/api/files/${id}`,
+      name: this.files[id].name,
+      size,
+      ...(kind === 'image' && { width: Math.round(width) || null, height: Math.round(height) || null }),
+    };
+  }
+
   #cleanUsername(value, id) {
     const name = typeof value === 'string' ? value.trim() : '';
     if (!USERNAME_PATTERN.test(name)) throw new StoreError(USERNAME_RULES);
@@ -270,8 +387,9 @@ export class Store {
     }
   }
 
-  #addSystem(group, text) {
-    return this.#push(group, { id: randomUUID(), type: 'system', text, ts: Date.now() });
+  // `kind` lets the app pick an icon, e.g. a phone for call notes.
+  #addSystem(group, text, kind) {
+    return this.#push(group, { id: randomUUID(), type: 'system', ...(kind && { kind }), text, ts: Date.now() });
   }
 
   #push(group, message) {

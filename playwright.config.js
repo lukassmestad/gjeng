@@ -11,6 +11,11 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     viewport: { width: 1280, height: 800 },
     trace: 'retain-on-failure',
+    // A fake microphone that beeps, so call tests can check that sound really reaches the other person.
+    permissions: ['microphone'],
+    launchOptions: {
+      args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
+    },
   },
   // Builds the app and starts a fresh server with its own data file for each test run.
   webServer: {
