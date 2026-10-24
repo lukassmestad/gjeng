@@ -12,7 +12,8 @@
     "demo:https": "npm run build && node server/index.js --demo --https",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "walkthrough": "node scripts/walkthrough.mjs"
   },
   "dependencies": {
     "express": "^5.3.0",

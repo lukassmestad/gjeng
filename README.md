@@ -84,6 +84,7 @@ npm test                      # 62 unit tests: accounts, chat, friends, privacy,
 npx playwright install chromium   # first time only
 npm run test:e2e              # 30 browser tests with two or more people (Playwright)
 npm run screenshots           # starts a demo server and saves screenshots to captures/
+npm run walkthrough           # records a 20-second demo video to captures/walkthrough.webm
 ```
 
 The browser tests use Chrome's fake microphone, which plays a beep. The call test checks that one person's beep actually reaches the other person and lights up the "talking" ring.
